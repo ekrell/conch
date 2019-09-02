@@ -1,6 +1,6 @@
 # Large data
 test/data
-test/data.zip
+test/data.tar.gz
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
