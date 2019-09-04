@@ -13,6 +13,7 @@ from math     import acos, cos, sin, ceil
 from optparse import OptionParser
 import pandas as pd
 import os, sys
+import matplotlib.pyplot  as plt
 # Geographic modules
 from osgeo import gdal
 # Optimization modules
@@ -22,6 +23,7 @@ from PyGMO         import algorithm, island, problem, archipelago
 import gridUtils          as GridUtil
 import plannerTools       as PlannerTools
 import entityFitness      as TargetFitness
+import plannerVis         as PlannerVis
 import rasterSetInterface as rsi
 
 # Global variables
@@ -243,7 +245,6 @@ def driver(sPoint, ePoint, env, offset = 0):
     return solution, pathPandas["DURATION"].sum()
 
 
-
 def main():
     ###########
     # Options #
@@ -260,6 +261,13 @@ def main():
         help = "Latitude of robot start position.")
     parser.add_option("-s", "--speed",      type = "float",    default = 154,
         help = "Speed of vehicle.")
+    # Program options
+    parser.add_option("-F", "--figure_out",                    default = None,
+        help = "Output file for map image with path.")
+    parser.add_option("-T", "--table_out",                     default = None,
+        help = "Output file for path csv.")
+    parser.add_option("-P", "--pickle_out",                    default = None,
+        help = "Output file for pickled path results.")
     # Data source options
     parser.add_option("-r", "--region_file",
         help = "Region as occupancy grid (Numpy-compatible TXT or GeoTIFF).")
@@ -301,7 +309,7 @@ def main():
             "extent" : extent,
         }
     environment["timespan"] = {
-            "interval" : 30,
+            "interval" : 3000,
             "offset"   : 0,
         }
     environment["forces"] = {
@@ -338,7 +346,7 @@ def main():
             "tWeight" : None,
         }
 
-    start  = {"Lat" : options.start_lat, "Lon" : options.start_lon}
+    start  = {"Lat" : options.start_lat,  "Lon" : options.start_lon}
     target = {"Lat" : options.target_lat, "Lon" : options.target_lon}
     #######
     # Run #
@@ -348,7 +356,27 @@ def main():
     #############
     # Visualize #
     #############
-    print(solution)
+    print("Start:  (lat {}, lon {})".format(
+        solution["startPoint"]["Lat"], solution["startPoint"]["Lon"]))
+    print("Target: (lat {}, lon {})".format(
+        solution["endPoint"]["Lat"], solution["endPoint"]["Lon"]))
+    pd.set_option('display.precision', 3)
+    print(solution["pathPandas"])
+    print("Fitness: {}".format(solution["solutionPath"]["fitness"][0]))
+
+    # Map (and save) the solution
+    map_ax = PlannerVis.makeGotoMap(environment["region"]["raster"],
+        environment["region"]["file"], [solution], 5, options.figure_out)
+    plt.show()
+
+    # Save pandas table as csv
+    if options.table_out is not None:
+        solution["pathPandas"].to_csv(options.table_out)
+
+    # Save pickled solution data
+    if options.pickle_out is not None:
+        with open(options.pickle_out, 'wb') as outfile:
+            pickle.dump(solution, outfile, protocol = pickle.HIGHEST_PROTOCOL)
 
     #################
     # Store results #
