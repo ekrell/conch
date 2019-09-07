@@ -456,7 +456,46 @@ def makeCoverageMap(raster, rasterFile, coverage, width, outfile):
 
     return ax
 
-def makeGotoMap(raster, rasterFile, gotoResults, width, outfile):
+def makeGotoMap_simple(raster, rasterFile, path, width, outfile = None):
+    #Clear figures
+    plt.close("all")
+
+    # Legend
+    marker = "8"
+    size   = 100
+    startColor   = "#ec73c9"
+    targetColor  = "orange"
+    endColor     = "seagreen"
+
+    # Build terrain map
+    ax, m = initMap(raster, width, rasterFile)
+
+    # Init region grid
+    grid = raster.GetRasterBand(1).ReadAsArray()
+
+    # Start, target
+    ystart  = path[0][0] * (-1) + len(grid)
+    xstart  = path[0][1]
+    ytarget = path[-1][0] * (-1) + len(grid)
+    xtarget = path[-1][1]
+    # Waypoints
+    y = [(-1) * p[0] + len(grid) for p in path]
+    x = [p[1] for p in path]
+
+    plt.plot(x, y, 'x--')
+
+    plt.scatter(xstart, ystart, s = size,
+        marker = marker, color = startColor)
+    plt.scatter(xtarget, ytarget, s = size,
+        marker = marker, color = targetColor)
+
+    if outfile is not None:
+        plt.savefig(outfile)
+
+    return ax
+
+
+def makeGotoMap(raster, rasterFile, gotoResults, width, outfile = None):
 
     #Clear figures
     plt.close("all")
@@ -478,7 +517,6 @@ def makeGotoMap(raster, rasterFile, gotoResults, width, outfile):
     numSegments = len(gotoResults)
 
     # USV start location
-    print (gotoResults)
     startCoord = gotoResults[0]["startPoint"]
     startArchive = GridUtil.getArchiveByWorld(startCoord["Lat"],
                        startCoord["Lon"], grid, raster.GetGeoTransform())
@@ -488,7 +526,6 @@ def makeGotoMap(raster, rasterFile, gotoResults, width, outfile):
     # Target locations
     xTargets = []
     yTargets = []
-
 
     # Plot paths
     for gotoResult in gotoResults:
@@ -503,7 +540,6 @@ def makeGotoMap(raster, rasterFile, gotoResults, width, outfile):
         yTargets.append(endArchive["rowFromBottom"])
         xTargets.append(endArchive["col"])
 
-
         plt.plot(x, y, 'x--')
 
     plt.scatter(xstart, ystart, s = size,
@@ -513,6 +549,7 @@ def makeGotoMap(raster, rasterFile, gotoResults, width, outfile):
     plt.scatter(xTargets[len(xTargets) -1], yTargets[len(yTargets) -1],
         s = size, marker = marker, color = endColor)
 
-    plt.savefig(outfile)
+    if outfile is not None:
+        plt.savefig(outfile)
 
     return ax

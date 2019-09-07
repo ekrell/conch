@@ -191,7 +191,7 @@ class highestCurrentProblem(base):
                 # Combine objectives into single fitness function
                 f = distance["total"]            * weights["distance"]  \
                   + distance["penaltyWeighted"]  * weights["obstacle"]  \
-                  + work["total"]                * weights["current"]   \
+                  + work["total"]                * weights["current"]  * 1000 \
                   - reward['weightedTotal']      * weights["entity"]
 
                 return (f, )
@@ -292,7 +292,13 @@ def main():
         help = "Weight of force attribute in fitness.")
     parser.add_option(     "--entity_weight",    type = "int", default = 0.001,
         help = "Weight of entity reward attribute in fitness")
-
+    # Cached path options
+    parser.add_option(     "--cached",  action = "store_true", default = False,
+        help = "Will print the fitness of a cached path. Requires ('--path_file').e")
+    parser.add_option(     "--path_file",
+        help = "Path as file where each line is a waypoint.")
+    parser.add_option(     "--rowcol", action = "store_true", default = False,
+        help = "Will treat waypoints in path file ('--path_file') as row, col. Default is lat, lon.")
     (options, args) = parser.parse_args()
 
     #########
@@ -348,6 +354,49 @@ def main():
 
     start  = {"Lat" : options.start_lat,  "Lon" : options.start_lon}
     target = {"Lat" : options.target_lat, "Lon" : options.target_lon}
+
+    startArchive = GridUtil.getArchiveByWorld(start["Lat"], start["Lon"],
+        environment["region"]["grid"],
+        environment["region"]["raster"].GetGeoTransform())
+    targetArchive = GridUtil.getArchiveByWorld(target["Lat"], target["Lon"],
+        environment["region"]["grid"],
+        environment["region"]["raster"].GetGeoTransform())
+
+    if options.cached is True:
+        #################
+        # Load Solution #
+        #################
+        with open(options.path_file) as f:
+            path = f.read().splitlines()
+
+        path = [p.split(',') for p in path]
+        for p in path:
+            p[0] = int(p[0])
+            p[1] = int(p[1])
+
+        path2 = []
+        for p in path:
+            path2.append(p[0])
+            path2.append(p[1])
+
+        heading, distance, duration, work, coord, reward = PlannerTools.statPath (environment, path2,
+                targetArchive, startArchive)
+        f = distance["total"]            * weights["distance"]  \
+          + distance["penaltyWeighted"]  * weights["obstacle"]  \
+          + work["total"]                * weights["current"] * 1000  \
+          - reward['weightedTotal']      * weights["entity"]
+
+        print (path)
+        map_ax = PlannerVis.makeGotoMap_simple(environment["region"]["raster"],
+            environment["region"]["file"], path, 5, options.figure_out)
+        plt.show()
+
+
+
+        print("work", work)
+        print("f", f)
+        exit(0)
+
     #######
     # Run #
     #######
@@ -369,6 +418,11 @@ def main():
         environment["region"]["file"], [solution], 5, options.figure_out)
     plt.show()
 
+    print(solution["path"])
+
+    #################
+    # Store results #
+    #################
     # Save pandas table as csv
     if options.table_out is not None:
         solution["pathPandas"].to_csv(options.table_out)
@@ -377,11 +431,6 @@ def main():
     if options.pickle_out is not None:
         with open(options.pickle_out, 'wb') as outfile:
             pickle.dump(solution, outfile, protocol = pickle.HIGHEST_PROTOCOL)
-
-    #################
-    # Store results #
-    #################
-
 
 if __name__ == '__main__':
     main()

@@ -479,15 +479,18 @@ def getPathLongForm(pathSimple):
 
 def statPath (environment, path, start, target, offset = 0):
 
-    path = [int(p) for p in path]
-
-    # Need grid resolution to determine actual distance and energy
-    pixelSize_m = calcPixelResolution_m (environment['region']['grid'], environment['region']['raster'].GetGeoTransform())
-
     yStart = int(start["row"])
     xStart = int(start["col"])
     yStop  = int(target["row"])
     xStop  = int(target["col"])
+
+    print(yStart)
+
+    # Need grid resolution to determine actual distance and energy
+    pixelSize_m = calcPixelResolution_m(
+        environment['region']['grid'], environment['region']['raster'].GetGeoTransform())
+
+    path = [int(p) for p in path]
 
     # Get coordinates
     coord = getPathCoords (path,
