@@ -26,6 +26,13 @@ import entityFitness      as TargetFitness
 import plannerVis         as PlannerVis
 import rasterSetInterface as rsi
 
+# Constants
+HYPERPARAMS_DEFAULT = \
+    ["pso",   # Choice of optimization solver
+     0.7298,  # Inertia weight
+     2.05,    # Cognitive coeff.
+     2.05,    # Social coeff.
+    ]
 # Global variables
 environment = None
 startPoint  = None
@@ -39,31 +46,69 @@ weights = {
 
 def solveProblem (start, target, environment):
 
-        # Configure problem using environment and target configuration
+        # Options for all solvers
         dim  = environment['plannerGoto']['numWaypoints'] * 2
         prob = highestCurrentProblem(dim = dim)
+        gen  = environment['plannerGoto']['generations']
+        hyper = environment['plannerGoto']['hyperparams']
 
-        algo = algorithm.pso (gen = environment['plannerGoto']['generations'])
+        # Need to set default params?
+        if hyper is None:
+            hyper = HYPERPARAMS_DEFAULT
+        # Make algorithm name lower-case
+        hyper[0] = hyper[0].lower()
+
+        print("Hyperparameters:", hyper)
+
+        # Select algorithm
+        if hyper[0] == "de":
+            # Differential Evolution (DE)
+            try:
+                algo = algorithm.de(gen,
+                    f  = float(hyper[1]), # weighting factor in [0,1] (if -1 self-adapt)
+                    cr = float(hyper[2]), # crossover in [0,1] (if -1 self-adapt)
+                )
+            except:
+                algo = algorithm.de(gen)  # Default params
+        elif hyper[0] == "sga":
+            # Simple Genetic Algorithm (SGA)
+            try:
+                algo = algorithm.sga(gen,
+                    r = float(hyper[1]),  # crossover factor in [0,1]
+                    m = float(hyper[2]),  # mutation probability in [0,1]
+                )
+            except:
+                algo = algorithm.sga(gen) # Default params
+        elif hyper[0] == "pso":
+            # Particle swarm optimization (PSO)
+            try:
+                algo = algorithm.pso(gen,
+                    omega  = float(hyper[1]), # inertia weight in [0,1]
+                    eta1   = float(hyper[2]), # cognitive component in [0,4]
+                    eta2   = float(hyper[3]), # social component in [0,4]
+                )
+            except:
+                algo = algorithm.pso(gen)     # Default params
+        elif hyper[0] == "abc":
+            # Artificial Bee Colony (ABC)
+            try:
+                algo = algorithm.bee_colony(gen,
+                    limit = int(hyper[1]),       # num tries to improve before drop
+                )
+            except:
+                algo = algorithm.bee_colony(gen) # Default params
+        else:
+            print("Algorithm {} not supported".format(hyper[0]))
+            exit(-1)
+
+        print(algo)
+        exit(0)
+
+        # Apply solver
         isl = island(algo, prob, environment['plannerGoto']['individuals'])
         isl.evolve(1)
 
-        # Try gen at a time
         log = []
-        #algo = algorithm.pso(gen = 1)
-        #isl = island(algo, prob, environment['plannerGoto']['individuals'])
-        #for i in range(environment['plannerGoto']['generations']):
-        #    isl.evolve(1)
-        #    print('{},{}'.format(i,isl.population.champion.f[0]))
-        #    log.append(isl.population.champion.f[0])
-
-
-        #archi = archipelago(algo, prob, 5, 5 )# environment['plannerGoto']['individuals'])
-        #archi.evolve(1)
-        #isl = archi[0]
-        #for i in archi:
-        #    if i.population.champion.f < isl.population.champion.f:
-        #        isl = i
-
 
         pathInfo = { "path"        : isl.population.champion.x,
                      "constraints" : isl.population.champion.c,
@@ -189,9 +234,9 @@ class highestCurrentProblem(base):
 
                 global weights
                 # Combine objectives into single fitness function
-                f = distance["total"]            * weights["distance"]  \
-                  + distance["penaltyWeighted"]  * weights["obstacle"]  \
-                  + work["total"]                * weights["current"]  * 1000 \
+                f = distance["total"]            * weights["distance"] \
+                  + distance["penaltyWeighted"]  * weights["obstacle"] \
+                  + work["total"]                * weights["current"]  \
                   - reward['weightedTotal']      * weights["entity"]
 
                 return (f, )
@@ -292,6 +337,8 @@ def main():
         help = "Weight of force attribute in fitness.")
     parser.add_option(     "--entity_weight",    type = "int", default = 0.001,
         help = "Weight of entity reward attribute in fitness")
+    parser.add_option(     "--hyperparams",
+        help = "Comma-delimited selection for solver and its options")
     # Cached path options
     parser.add_option(     "--cached",  action = "store_true", default = False,
         help = "Will print the fitness of a cached path. Requires ('--path_file').e")
@@ -346,6 +393,7 @@ def main():
             "obstacleWeight" : options.obstacle_weight,
             "currentWeight"  : options.force_weight,
             "entityWeight"   : options.entity_weight,
+            "hyperparams"    : options.hyperparams.split(','),
         }
     environment["logbook"] = {
             "grid"    : None,
