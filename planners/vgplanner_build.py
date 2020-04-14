@@ -10,32 +10,29 @@ import matplotlib.pyplot as plt
 import geopandas as gp
 from optparse import OptionParser
 import shapefile
+import random
 
 ###########
 # Options #
 ###########
-
-# Raster file
-regionRasterFile = "/home/ekrell/Downloads/ADVGEO_DL/sample_region.tif"
-graphOutFile = "/home/ekrell/Downloads/ADVGEO_DL/sample_region.graph"
-shapeOutFile = "/home/ekrell/Downloads/ADVGEO_DL/sample_region.shp"
-mapOutFile = "/home/ekrell/Downloads/ADVGEO_DL/sample_region.png"
-numWorkers = 4
-build = False
+rangeWidth = 100
 
 parser = OptionParser()
 parser.add_option("-r", "--region",
         help = "Path to raster containing binary occupancy region (1 -> obstacle, 0 -> free)",
-        default = "/home/ekrell/Downloads/ADVGEO_DL/sample_region.tif")
+        default = "/home/ekrell/Downloads/ADVGEO_DL/sample_region_mini.tif")
 parser.add_option("-g", "--graph", 
         help = "Path to save  visibility graph",
-        default = "/home/ekrell/Downloads/ADVGEO_DL/sample_region.graph")
+        default = "/home/ekrell/Downloads/ADVGEO_DL/sample_region_mini.graph")
 parser.add_option("-s", "--shape", 
         help = "Path to save shapefile",
-        default = "/home/ekrell/Downloads/ADVGEO_DL/sample_region.shp")
+        default = "/home/ekrell/Downloads/ADVGEO_DL/sample_region_mini.shp")
 parser.add_option("-m", "--map", 
         help = "Path to save polygon map",
-        default = "/home/ekrell/Downloads/ADVGEO_DL/sample_region.png")
+        default = "/home/ekrell/Downloads/ADVGEO_DL/sample_region_mini.png")
+parser.add_option("-v", "--vgmap",
+        help = "Path to save visibility graph map",
+        default = "/home/ekrell/Downloads/ADVGEO_DL/sample_region_graph_mini.png")
 parser.add_option("-n", "--num_workers", type = "int",
         help = "Number of parallel workers",
         default = 4)
@@ -50,6 +47,7 @@ regionRasterFile = options.region
 graphOutFile = options.graph
 shapeOutFile = options.shape
 mapOutFile = options.map
+vgmapOutFile = options.vgmap
 numWorkers = options.num_workers
 build = options.build
 
@@ -62,8 +60,11 @@ print("Computing with {} workers".format(numWorkers))
 print("Begin extracting polygons from raster")
 mask = None
 with rasterio.open(regionRasterFile) as src:
-    image = src.read(1).astype('uint8') # first band
+    # Read first band of image (should be binary occupancy grid)
+    image = src.read(1).astype('uint8')
+    # Only want polygons of obstacles, where 0 -> free cell
     mask = image != 0
+    # Store each polygon
     results = (
         {'properties': {'raster_val': v}, 'geometry': s}
         for i, (s, v) 
@@ -71,23 +72,37 @@ with rasterio.open(regionRasterFile) as src:
             shapes(image, mask=mask, transform=src.transform)))
 geoms = list(results)
 
-# Convert to shapely 
-polygons = []
-shapes = []
+# Convert polygons to shapely format, to pyvisgraph format, to geopandas
+shapes = []   # For manipulating polygons
+polygons = [] # For pyvisgraph storage
+gdf = gp.GeoDataFrame() # For writing the polygon shapefile
+gdf['geometry'] = None
+count = 0 # Track number of polygons
 for geom in geoms:
+    # Convert to shapely
     shape_ = shape(geom['geometry'])
+    # Simplify shape boundary (since raster artificially blocky)
+    #shape_ = shape_.buffer(0.008, join_style=1).buffer(-0.008, join_style=1)
+    shape_ = shape_.simplify(0.00025, preserve_topology=False)
+    # If smoothing too aggressive, may loose obstacles! 
+    if shape_.is_empty: 
+        print ("  Warning! shape lost in simplifying.")
+        continue
     polygon_ = []
+    # Convert shapely to pyvisgraph format
     for point in shape_.exterior.coords:
-        polygon_.append(vg.Point(round(point[0], 8), round(point[1], 8)))
+        polygon_.append(vg.Point(round(point[0], 10), round(point[1], 10)))
     shapes.append(shape_)
     polygons.append(polygon_)
-print("Done extracting polygons from raster")
+    # Add as geopandas row
+    gdf.loc[count, 'geometry'] = shape_
 
-# Save shapefile
-gdf  = gp.GeoDataFrame.from_features(geoms)
+    count += 1
+print("Done extracting {} polygons from raster".format(count))
+
 # save the GeoDataFrame
-gdf.to_file(driver = 'ESRI Shapefile', filename= shapeOutFile)
-print("Saved polygon shapefile to file: {}".format(shapeOutFile))
+gdf.to_file(driver = 'ESRI Shapefile', filename = shapeOutFile)
+print("Saved shapefile to: {}".format(shapeOutFile))
 
 # Visualize
 fig, ax = plt.subplots(nrows=1, ncols=1)
@@ -106,15 +121,35 @@ if build == False:
 # Shapes -> Visibility graph #
 ##############################
 
-# Test shapefile
-input_shapefile = shapefile.Reader('/home/ekrell/Downloads/ADVGEO_DL/tiny2.shp')
+## Read shapefile
+input_shapefile = shapefile.Reader(shapeOutFile)
 shapes = input_shapefile.shapes()
+
+# Find extent
+minx = shapes[0].points[0][0]
+maxx = minx
+miny = shapes[0].points[0][1]
+maxy = miny
+for shape in shapes:
+    for point in shape.points:
+        if point[0] < minx:
+            minx = point[0]
+        elif point[0] > maxx:
+            maxx = point[0]
+        if point[1] < miny:
+            miny = point[1]
+        elif point[1] > maxy:
+            maxy = point[1]
 
 polygons = []
 for shape in shapes:
     polygon = []
     for point in shape.points:
-        polygon.append(vg.Point(point[0], point[1]))
+        x = ((round(point[0], 10) - minx) / (maxx - minx) * rangeWidth)
+        y = ((round(point[1], 10) - miny) / (maxy - miny) * rangeWidth)
+        polygon.append(vg.Point(x, y))
+        #print (x, y)
+        #polygon.append(vg.Point(round(point[0], 8), round(point[1], 8)))
     polygons.append(polygon)
 
 # Start building the visibility graph 
@@ -122,7 +157,32 @@ graph = vg.VisGraph()
 print('Begin building visibility graph')
 graph.build(polygons, workers = numWorkers)
 print('Done building visibility graph')
-
 # Save graph
 graph.save(graphOutFile)
 print("Saved visibility graph to file: {}".format(graphOutFile))
+
+# Plot visibility graph
+edges = graph.visgraph.get_edges()
+# Print only P proportion, since very time consuming to plot 
+plotProp = 0.05
+numSamples = int(len(edges) * plotProp)
+edges = random.sample(edges, numSamples)
+
+print("Begin plotting visibility graph: {} edges".format(len(edges)))
+for e in list(edges):
+    plt.plot([ \
+          (e.p1.x  / rangeWidth) * (maxx - minx) + minx, 
+          (e.p2.x  / rangeWidth) * (maxx - minx) + minx], 
+        [ (e.p1.y / rangeWidth) * (maxy - miny) + miny, 
+          (e.p2.y / rangeWidth) * (maxy - miny) + miny], 
+        color = 'green', linestyle = 'dashed', alpha = 0.5)
+    plt.scatter([ \
+         (e.p1.x  / rangeWidth) * (maxx - minx) + minx, 
+         (e.p2.x  / rangeWidth) * (maxx - minx) + minx], 
+        [(e.p1.y  / rangeWidth) * (maxy - miny) + miny,
+         (e.p2.y  / rangeWidth) * (maxy - miny) + miny], 
+        s = 1, color = 'green')
+print("Done plotting visibiity graph")
+# Save VG map
+plt.savefig(vgmapOutFile)
+print("Saved visibility graph map to file: {}".format(vgmapOutFile))
