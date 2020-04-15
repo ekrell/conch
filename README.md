@@ -34,7 +34,7 @@ Main features
 
 
 ### Add libraries to Pythonpath
-        $MY_PATH=<your path to the conch repo>
+        MY_PATH=<your path to the conch repo>
         export PYTHONPATH=$PYTHONPATH:$MY_PATH/lib
 
 
