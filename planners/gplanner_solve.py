@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/python4
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -8,6 +8,7 @@ from heapq import heapify, heappush, heappop
 from osgeo import gdal
 from math import acos, cos, sin, ceil
 from bresenham import bresenham
+import osgeo.gdalnumeric as gdn
 # Conch modules
 import rasterSetInterface as rsi
 import gridUtils
@@ -18,14 +19,78 @@ except AttributeError:
     def iteritems(d):
         return iter(d.items())
 
+def raster2array(raster, dim_ordering="channels_last", dtype='float32'):
+    '''
+    Modified from: https://gis.stackexchange.com/a/283207
+    '''
+    bands = [raster.GetRasterBand(i) for i in range(1, raster.RasterCount + 1)]
+    arr = np.array([gdn.BandReadAsArray(band) for band in bands]).astype(dtype)
+    return arr
+
+def calcWork(v, w, currentsGrid_u, currentsGrid_v, targetSpeed):
+    '''
+    This function calculates the work applied by a vehicle
+    between two points, given rasters with u, v force components
+    The rasters MUST match: same extent, resolution, pixels are same latlon
+    
+    v: start point (row, col) in force rasters
+    w: end point (row, col) in force rasters
+    currentsGrid_u: 3D Raster of forces u components.
+        [time index, row, column] = u
+    currentsGrid_v: 3D Raster of forces v components.
+        [time index, row, column] = v
+    '''
+
+    if v != w:
+       # Heading
+       vecs = (w[1] - v[1], w[0] - v[0])
+       dotprod = vecs[0] * 1 + vecs[1] * 0
+       maga = pow(vecs[0] * vecs[0] + vecs[1] * vecs[1], 0.5)
+       heading_rad = 0.0
+       if (maga != 0):
+           costheta = dotprod / maga
+           heading_rad = acos(costheta)
+
+       # Distance
+       distance = pow((pow(v[0] - w[0], 2) + pow(v[1] - w[1], 2)), 0.5)
+
+       # Work
+       work = 0
+       b = list(bresenham(v[0], v[1], w[0], w[1]))
+       pixeldist = distance / (len(b) -1)
+
+       for p in b[1:]: # Skip first pixel -> already there!
+           xA = targetSpeed * cos(heading_rad)
+           yA = targetSpeed * sin(heading_rad)
+           xB = currentsGrid_u[0, p[0], p[1]]
+           yB = currentsGrid_v[0, p[0], p[1]]
+           
+           dV = (xB - xA, yB - yA)
+
+           magaDV = pow(dV[0] * dV[0] + dV[1] * dV[1], 0.5)
+           dirDV = 0.0
+           dotprod = dV[0] * 1 + dV[1] * 0
+           if magaDV != 0:
+               costheta = dotprod / magaDV
+               dirDV = acos(costheta)
+
+           work += magaDV * pixeldist
+    else:
+        work = 0
+
+    return work
+
+
 def astar(graph, origin, destination,
-        regionTransform = None, currents_u = None, currents_v = None, currentsTransform = None):
+        regionTransform = None, currentsGrid_u = None, currentsGrid_v = None,
+        currentsTransform = None, currentsExtent = None, targetSpeed = 100):
     """
     A* search algorithm, using Euclidean distance heuristic
     Note that this is a modified version of an
     A* implementation by Amit Patel.
     https://www.redblobgames.com/pathfinding/a-star/implementation.html
     """
+
     frontier = priority_dict()
     frontier[origin] = 0
     cameFrom = {}
@@ -34,24 +99,43 @@ def astar(graph, origin, destination,
     costSoFar[origin] = 0
 
     while len(frontier) > 0:
-        current = frontier.pop_smallest()
-        if current == destination:
+        v = frontier.pop_smallest()
+        if v == destination:
             break
-        edges = graph[current]
+
+        # Need latlon IF considering water currents
+        if currentsGrid_u is not None:
+            v_latlon = gridUtils.grid2world(v[0], v[1], regionTransform, regionExtent["rows"])
+            v_currents = gridUtils.world2grid(v_latlon[0], v_latlon[1], 
+                    currentsTransform, currentsExtent["rows"])
+
+        edges = graph[v]
         for w in edges:
-            distance = pow((pow(current[0] - w[0], 2) + pow(current[1] - w[1], 2)), 0.5)
-            new_cost = costSoFar[current] + distance
+            # No currents --> cost = distance
+            if currentsGrid_u is None:
+                cost = pow((pow(v[0] - w[0], 2) + pow(v[1] - w[1], 2)), 0.5)
+            # Currents --> cost = energy expended
+            else:
+                # Find corresponding coordinates in currents rasters
+                w_latlon = gridUtils.grid2world(w[0], w[1], regionTransform, regionExtent["rows"])
+                w_currents = gridUtils.world2grid(w_latlon[0], w_latlon[1], 
+                        currentsTransform, currentsExtent_u["rows"])
+                # Calculate work applied by vehicle along edge
+                cost = calcWork(v_currents, w_currents, currentsGrid_u, currentsGrid_v, targetSpeed)
+
+            new_cost = costSoFar[v] + cost
             if w not in costSoFar or new_cost < costSoFar[w]:
                 costSoFar[w] = new_cost
-                distance = pow((pow(w[0] - destination[0], 2) + pow(w[1] - destination[1], 2)), 0.5)
-                priority = new_cost + distance
+                cost = pow((pow(w[0] - destination[0], 2) + pow(w[1] - destination[1], 2)), 0.5)
+                priority = new_cost + cost
                 frontier[w] = priority
-                cameFrom[w] = current
+                cameFrom[w] = v
     return (frontier, cameFrom)
 
 
 def dijkstra(graph, origin, destination, 
-        regionTransform = None, currents_u = None, currents_v = None, currentsTransform = None):
+        regionTransform = None, currentsGrid_u = None, currentsGrid_v = None, 
+        currentsTransform = None, currentsExtent = None, targetSpeed = 100):
     D = {}
     P = {}
     Q = priority_dict()
@@ -62,82 +146,25 @@ def dijkstra(graph, origin, destination,
         if v == destination: break
                 
         # Need latlon IF considering water currents
-        if currents_u is not None:
+        if currentsGrid_u is not None:
             v_latlon = gridUtils.grid2world(v[0], v[1], regionTransform, regionExtent["rows"])
             v_currents = gridUtils.world2grid(v_latlon[0], v_latlon[1], 
                     currentsTransform, currentsExtent_u["rows"])
 
         edges = graph[v]
-        #if add_to_visgraph != None and len(add_to_visgraph[v]) > 0:
-        #    edges = add_to_visgraph[v] | graph[v]
         for w in edges:
-            
             # No currents --> cost = distance
-            if currents_u is None:
-                cost = D[v] + pow((pow(v[0] - w[0], 2) + pow(v[1] - w[1], 2)), 0.5)
-            
+            if currentsGrid_u is None:
+                dcost = pow((pow(v[0] - w[0], 2) + pow(v[1] - w[1], 2)), 0.5)
             # Currents --> cost = energy expended
             else:
                 # Find corresponding coordinates in currents rasters
                 w_latlon = gridUtils.grid2world(w[0], w[1], regionTransform, regionExtent["rows"])
                 w_currents = gridUtils.world2grid(w_latlon[0], w_latlon[1], 
                         currentsTransform, currentsExtent_u["rows"])
-
-                # Skip if latlons match... appropriate?
-                if v_currents != w_currents:
-                    # Heading
-                    vecs = (w[1] - v[1], w[0] - v[0])
-                    dotprod = vecs[0] * 1 + vecs[1] * 0
-                    maga = pow(vecs[0] * vecs[0] + vecs[1] * vecs[1], 0.5)
-                    heading_rad = 0.0
-                    if (maga != 0):
-                        costheta = dotprod / maga
-                        heading_rad = acos(costheta)
-
-                    #print(v)
-                    #print(w)
-                    #print(vecs)
-                    #print (heading_rad)
-
-                    # Distance
-                    distance = pow((pow(v[0] - w[0], 2) + pow(v[1] - w[1], 2)), 0.5)
-
-                    # Work
-                    targetSpeed = 100 # units?
-
-                    work = 0
-                    b = list(bresenham(v_currents[0], v_currents[1], w_currents[0], w_currents[1]))
-                    pixeldist = distance / (len(b) -1)
-
-                    for p in b[1:]: # Skip first pixel -> already there!
-                        xA = targetSpeed * cos(heading_rad)
-                        yA = targetSpeed * sin(heading_rad)
-                        xB = currents_u.GetRasterBand(1).ReadAsArray()[p[0], p[1]]
-                        yB = currents_v.GetRasterBand(1).ReadAsArray()[p[0], p[1]]
-                        
-                        dV = (xB - xA, yB - yA)
-
-                        #print(v, w, heading_rad)
-                        #print(xA, yA, xB, yB)
-                        #print(dV)
-
-                        magaDV = pow(dV[0] * dV[0] + dV[1] * dV[1], 0.5)
-                        dirDV = 0.0
-                        dotprod = dV[0] * 1 + dV[1] * 0
-                        if magaDV != 0:
-                            costheta = dotprod / magaDV
-                            dirDV = acos(costheta)
-
-                        work += magaDV * pixeldist
-
-                        #print(magaDV, dirDV)
-                else:
-                    work = 0
-
-                cost = D[v] + work
-
-                #print(v, w, v_currents, w_currents)
-                #print(heading_rad, distance)
+                dcost = calcWork(v_currents, w_currents, currentsGrid_u, currentsGrid_v, targetSpeed)
+            # Add up cost
+            cost = D[v] + dcost
 
             if w in D:
                 if cost < D[w]:
@@ -278,11 +305,13 @@ if currentsRasterFile_u is not None and currentsRasterFile_v is not None:
     currentsData_u = gdal.Open(currentsRasterFile_u)
     currentsExtent_u = rsi.getGridExtent(currentsData_u)
     currentsTransform_u = currentsData_u.GetGeoTransform()
-    currentsTransform_u = currentsData_u.GetGeoTransform()
+    currentsGrid_u = raster2array(currentsData_u)
+
     # Load v components
     currentsData_v = gdal.Open(currentsRasterFile_v)
     currentsExtent_v = rsi.getGridExtent(currentsData_v)
     currentsTransform_v = currentsData_v.GetGeoTransform()
+    currentsGrid_v = raster2array(currentsData_v)
 
     # Sanity check that the current u, v rasters match
     if currentsExtent_u["rows"] != currentsExtent_v["rows"] or \
@@ -293,7 +322,7 @@ if currentsRasterFile_u is not None and currentsRasterFile_v is not None:
         print("[-] Band count mismatch between currents u, v")
         exit(-1)
 
-    #usingCurrents = True
+    usingCurrents = True
     print("Incorporating forces into energy cost:")
     print("  u: {}".format(currentsRasterFile_u))
     print("  v: {}".format(currentsRasterFile_v))
@@ -309,10 +338,10 @@ end = gridUtils.world2grid(endPoint[0], endPoint[1], regionTransform, regionExte
 if usingCurrents:   # Solve with current forces --> energy cost
     if solver == "A*":
         D, P = astar(graph, start, end, 
-                regionTransform, currentsData_u, currentsData_v, currentsTransform_u)
+                regionTransform, currentsGrid_u, currentsGrid_v, currentsTransform_u, currentsExtent_u)
     else:  # Default to dijkstra
         D, P = dijkstra(graph, start, end, 
-                regionTransform, currentsData_u, currentsData_v, currentsTransform_u)
+                regionTransform, currentsGrid_u, currentsGrid_v, currentsTransform_u, currentsExtent_u)
 else:   # Default to distance-based    
     if solver == "A*":
         D, P = astar(graph, start, end)
