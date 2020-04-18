@@ -24,17 +24,12 @@ parser.add_option("-g", "--graph",
 parser.add_option("-m", "--map",
         help = "Path to save graph map",
         default = "/home/ekrell/Downloads/ADVGEO_DL/sample_region_graph_mini_uniform.png")
-#parser.add_option("-b", "--build",
-#        help = "Build the graph",
-#        action = "store_true",
-#        default = False)
 
 (options, args) = parser.parse_args()
 
 regionRasterFile = options.region
 graphOutFile = options.graph
 mapOutFile = options.map
-#build = options.build
 
 print("Using input region raster: {}".format(regionRasterFile))
 
@@ -42,9 +37,10 @@ print("Using input region raster: {}".format(regionRasterFile))
 # Region -> Graph #
 ###################
 
-# Read raster
+# Read region raster
 regionData = gdal.Open(regionRasterFile)
 regionExtent = rsi.getGridExtent(regionData)
+regionTransform = regionData.GetGeoTransform()
 grid = regionData.GetRasterBand(1).ReadAsArray()
 
 # Convert to graph
@@ -75,7 +71,6 @@ for row in range(regionExtent["rows"]):
                     edges_.append((row + 1, col + 1))
             graph[(row, col)] = edges_
 print("Done building uniform graph")
-
 
 # Plot graph
 print("Begin plotting uniform graph: {} nodes".format(len(graph)))
