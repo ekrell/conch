@@ -6,9 +6,10 @@ from optparse import OptionParser
 import dill as pickle
 from heapq import heapify, heappush, heappop
 from osgeo import gdal
-from math import acos, cos, sin, ceil
+from math import acos, cos, sin, ceil, floor
 from bresenham import bresenham
 import osgeo.gdalnumeric as gdn
+from haversine import haversine
 # Conch modules
 import rasterSetInterface as rsi
 import gridUtils
@@ -27,7 +28,7 @@ def raster2array(raster, dim_ordering="channels_last", dtype='float32'):
     arr = np.array([gdn.BandReadAsArray(band) for band in bands]).astype(dtype)
     return arr
 
-def calcWork(v, w, currentsGrid_u, currentsGrid_v, targetSpeed):
+def calcWork(v, w, currentsGrid_u, currentsGrid_v, targetSpeed_mps, timeIn = 0, interval = 3600):
     '''
     This function calculates the work applied by a vehicle
     between two points, given rasters with u, v force components
@@ -40,6 +41,10 @@ def calcWork(v, w, currentsGrid_u, currentsGrid_v, targetSpeed):
     currentsGrid_v: 3D Raster of forces v components.
         [time index, row, column] = v
     '''
+
+    (index, rem) = divmod(timeIn, interval)
+    index = floor(index)
+
 
     if v != w:
        # Heading
@@ -60,30 +65,38 @@ def calcWork(v, w, currentsGrid_u, currentsGrid_v, targetSpeed):
        pixeldist = distance / (len(b) -1)
 
        for p in b[1:]: # Skip first pixel -> already there!
-           xA = targetSpeed * cos(heading_rad)
-           yA = targetSpeed * sin(heading_rad)
-           xB = currentsGrid_u[0, p[0], p[1]]
-           yB = currentsGrid_v[0, p[0], p[1]]
-           
-           dV = (xB - xA, yB - yA)
+            xA = targetSpeed_mps * cos(heading_rad)
+            yA = targetSpeed_mps * sin(heading_rad)
 
-           magaDV = pow(dV[0] * dV[0] + dV[1] * dV[1], 0.5)
-           dirDV = 0.0
-           dotprod = dV[0] * 1 + dV[1] * 0
-           if magaDV != 0:
-               costheta = dotprod / magaDV
-               dirDV = acos(costheta)
+           #xB = currentsGrid_u[0, p[0], p[1]]
+           #yB = currentsGrid_v[0, p[0], p[1]]
+            cmag = currentsGrid_u[index, p[0], p[1]] * (rem / interval) + \
+                 currentsGrid_u[index + 1, p[0], p[1]] * (1 - (rem / interval))
+            cdir = currentsGrid_v[index, p[0], p[1]] * (rem / interval) + \
+                 currentsGrid_v[index + 1, p[0], p[1]] * (1 - (rem / interval))
 
-           work += magaDV * pixeldist
+            xB = cmag * cos(cdir)
+            yB = cmag * sin(cdir)
+                      
+            dV = (xB - xA, yB - yA)
+
+            magaDV = pow(dV[0] * dV[0] + dV[1] * dV[1], 0.5)
+            dirDV = 0.0
+            dotprod = dV[0] * 1 + dV[1] * 0
+            if magaDV != 0:
+                costheta = dotprod / magaDV
+                dirDV = acos(costheta)
+
+            work += magaDV * pixeldist
     else:
         work = 0
 
     return work
 
 
-def astar(graph, origin, destination,
-        regionTransform = None, currentsGrid_u = None, currentsGrid_v = None,
-        currentsTransform = None, currentsExtent = None, targetSpeed = 100):
+def astar(graph, origin, destination, regionTransform = None, 
+        currentsGrid_u = None, currentsGrid_v = None, currentsTransform = None, currentsExtent = None, 
+        targetSpeed_mps = 100, timeOffset = 0):
     """
     A* search algorithm, using Euclidean distance heuristic
     Note that this is a modified version of an
@@ -95,8 +108,10 @@ def astar(graph, origin, destination,
     frontier[origin] = 0
     cameFrom = {}
     costSoFar = {}
+    timeSoFar = {}
     cameFrom[origin] = None
     costSoFar[origin] = 0
+    timeSoFar[origin] = timeOffset
 
     while len(frontier) > 0:
         v = frontier.pop_smallest()
@@ -104,38 +119,51 @@ def astar(graph, origin, destination,
             break
 
         # Need latlon IF considering water currents
-        if currentsGrid_u is not None:
-            v_latlon = gridUtils.grid2world(v[0], v[1], regionTransform, regionExtent["rows"])
+        v_latlon = gridUtils.grid2world(v[0], v[1], regionTransform, regionExtent["rows"])
+        dest_latlon = gridUtils.grid2world(destination[0], destination[1], 
+                regionTransform, regionExtent["rows"])
+
+        if currentsTransform is not None:
             v_currents = gridUtils.world2grid(v_latlon[0], v_latlon[1], 
                     currentsTransform, currentsExtent["rows"])
 
+
         edges = graph[v]
         for w in edges:
+            w_latlon = gridUtils.grid2world(w[0], w[1], regionTransform, regionExtent["rows"])
             # No currents --> cost = distance
             if currentsGrid_u is None:
                 cost = pow((pow(v[0] - w[0], 2) + pow(v[1] - w[1], 2)), 0.5)
             # Currents --> cost = energy expended
             else:
                 # Find corresponding coordinates in currents rasters
-                w_latlon = gridUtils.grid2world(w[0], w[1], regionTransform, regionExtent["rows"])
                 w_currents = gridUtils.world2grid(w_latlon[0], w_latlon[1], 
                         currentsTransform, currentsExtent_u["rows"])
                 # Calculate work applied by vehicle along edge
-                cost = calcWork(v_currents, w_currents, currentsGrid_u, currentsGrid_v, targetSpeed)
+                cost = calcWork(v_currents, w_currents, currentsGrid_u, currentsGrid_v,
+                        targetSpeed_mps, timeIn = timeSoFar[v])
 
             new_cost = costSoFar[v] + cost
             if w not in costSoFar or new_cost < costSoFar[w]:
+                # Apply heuristic
+                heuristic = pow((pow(w[0] - destination[0], 2) + pow(w[1] - destination[1], 2)), 0.5)
+                heuristic = haversine(w_latlon, dest_latlon)
                 costSoFar[w] = new_cost
-                cost = pow((pow(w[0] - destination[0], 2) + pow(w[1] - destination[1], 2)), 0.5)
-                priority = new_cost + cost
+
+                # Estimated duration to reach this point
+                dist = haversine(v_latlon, w_latlon)
+                timeSoFar[w] = timeSoFar[v] + (dist / targetSpeed_mps)
+                
+                priority = new_cost + dist
                 frontier[w] = priority
                 cameFrom[w] = v
-    return (frontier, cameFrom)
+                
+    return (frontier, cameFrom, costSoFar[v], timeSoFar[v])
 
 
 def dijkstra(graph, origin, destination, 
         regionTransform = None, currentsGrid_u = None, currentsGrid_v = None, 
-        currentsTransform = None, currentsExtent = None, targetSpeed = 100):
+        currentsTransform = None, currentsExtent = None, targetSpeed_mps = 100):
     D = {}
     P = {}
     Q = priority_dict()
@@ -162,7 +190,7 @@ def dijkstra(graph, origin, destination,
                 w_latlon = gridUtils.grid2world(w[0], w[1], regionTransform, regionExtent["rows"])
                 w_currents = gridUtils.world2grid(w_latlon[0], w_latlon[1], 
                         currentsTransform, currentsExtent_u["rows"])
-                dcost = calcWork(v_currents, w_currents, currentsGrid_u, currentsGrid_v, targetSpeed)
+                dcost = calcWork(v_currents, w_currents, currentsGrid_u, currentsGrid_v, targetSpeed_mps)
             # Add up cost
             cost = D[v] + dcost
 
@@ -255,10 +283,10 @@ parser.add_option("-m", "--map",
         default = "/home/ekrell/Downloads/ADVGEO_DL/sample_region_graph_mini_uniform_path.png")
 parser.add_option("-u", "--currents_u",
         help = "Path to raster containing u components of water velocity",
-        default = "/home/ekrell/Downloads/ADVGEO_DL/sample_region_currents_u.tif")
+        default = "/home/ekrell/Downloads/ADVGEO_DL/sample_region_currents_u_2.tif")
 parser.add_option("-v", "--currents_v",
         help = "Path to raster containing v components of water velocity.",
-        default = "/home/ekrell/Downloads/ADVGEO_DL/sample_region_currents_v.tif")
+        default = "/home/ekrell/Downloads/ADVGEO_DL/sample_region_currents_v_2.tif")
 parser.add_option("--sx", 
         help = "Start longitude.",
         default = -70.92)
@@ -284,7 +312,8 @@ currentsRasterFile_u = options.currents_u
 currentsRasterFile_v = options.currents_v
 startPoint = (options.sy, options.sx)
 endPoint = (options.dy, options.dx)
-solver = options.solver
+solver = options.solver.lower()
+targetSpeed_mps = 0.5
 
 # Load raster
 regionData = gdal.Open(regionRasterFile)
@@ -336,15 +365,17 @@ end = gridUtils.world2grid(endPoint[0], endPoint[1], regionTransform, regionExte
 
 # solve
 if usingCurrents:   # Solve with current forces --> energy cost
-    if solver == "A*":
-        D, P = astar(graph, start, end, 
-                regionTransform, currentsGrid_u, currentsGrid_v, currentsTransform_u, currentsExtent_u)
+    if solver == "a*":
+        D, P, C, T = astar(graph, start, end, regionTransform, 
+                currentsGrid_u, currentsGrid_v, currentsTransform_u, currentsExtent_u,
+                targetSpeed_mps)
     else:  # Default to dijkstra
         D, P = dijkstra(graph, start, end, 
-                regionTransform, currentsGrid_u, currentsGrid_v, currentsTransform_u, currentsExtent_u)
+                regionTransform, currentsGrid_u, currentsGrid_v, currentsTransform_u, currentsExtent_u,
+                    targetSpeed_mps)
 else:   # Default to distance-based    
-    if solver == "A*":
-        D, P = astar(graph, start, end)
+    if solver == "a*":
+        D, P, C, T = astar(graph, start, end, regionTransform)
     else:  # Default to dijkstra
         D, P = dijkstra(graph, start, end)
 
@@ -355,6 +386,17 @@ while 1:
     end = P[end]
 path.reverse()
 numWaypoints = len(path)
+
+path_distance = 0
+prev_point = path[0]
+for point in path[1:]:
+    prev_latlon = gridUtils.grid2world(prev_point[0], prev_point[1], regionTransform, regionExtent["rows"])
+    point_latlon = gridUtils.grid2world(point[0], point[1], regionTransform, regionExtent["rows"])
+    path_distance += haversine(prev_latlon, point_latlon)
+    prev_point = point
+print('Shortest path distance: {:.4f} km'.format(path_distance))
+print('              duration: {:.4f} min'.format( (path_distance / (targetSpeed_mps / 100)) / 60))
+print('                  cost: {:.4f}'.format(C))
 
 # Plot solution path
 lats = np.zeros(numWaypoints)
