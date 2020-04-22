@@ -10,6 +10,7 @@ from math import acos, cos, sin, ceil, floor
 from bresenham import bresenham
 import osgeo.gdalnumeric as gdn
 from haversine import haversine
+import pyvisgraph as vg
 # Conch modules
 import rasterSetInterface as rsi
 import gridUtils
@@ -127,7 +128,6 @@ def astar(graph, origin, destination, regionTransform = None,
             v_currents = gridUtils.world2grid(v_latlon[0], v_latlon[1], 
                     currentsTransform, currentsExtent["rows"])
 
-
         edges = graph[v]
         for w in edges:
             w_latlon = gridUtils.grid2world(w[0], w[1], regionTransform, regionExtent["rows"])
@@ -161,36 +161,45 @@ def astar(graph, origin, destination, regionTransform = None,
     return (frontier, cameFrom, costSoFar[v], timeSoFar[v])
 
 
-def dijkstra(graph, origin, destination, 
-        regionTransform = None, currentsGrid_u = None, currentsGrid_v = None, 
-        currentsTransform = None, currentsExtent = None, targetSpeed_mps = 100):
+def dijkstra(graph, origin, destination,  regionTransform, 
+        currentsGrid_u = None, currentsGrid_v = None, currentsTransform = None, currentsExtent = None, 
+        targetSpeed_mps = 100, timeOffset = 0):
+
     D = {}
     P = {}
+    timeSoFar = {}
     Q = priority_dict()
     Q[origin] = 0
+    timeSoFar[origin] = timeOffset
+
+    dest_latlon = gridUtils.grid2world(destination[0], destination[1],
+            regionTransform, regionExtent["rows"])
 
     for v in Q:
         D[v] = Q[v]
         if v == destination: break
+
+        v_latlon = gridUtils.grid2world(v[0], v[1], regionTransform, regionExtent["rows"])
                 
         # Need latlon IF considering water currents
         if currentsGrid_u is not None:
-            v_latlon = gridUtils.grid2world(v[0], v[1], regionTransform, regionExtent["rows"])
             v_currents = gridUtils.world2grid(v_latlon[0], v_latlon[1], 
                     currentsTransform, currentsExtent_u["rows"])
 
         edges = graph[v]
         for w in edges:
+            w_latlon = gridUtils.grid2world(w[0], w[1], regionTransform, regionExtent["rows"])
+
             # No currents --> cost = distance
             if currentsGrid_u is None:
                 dcost = pow((pow(v[0] - w[0], 2) + pow(v[1] - w[1], 2)), 0.5)
             # Currents --> cost = energy expended
             else:
                 # Find corresponding coordinates in currents rasters
-                w_latlon = gridUtils.grid2world(w[0], w[1], regionTransform, regionExtent["rows"])
                 w_currents = gridUtils.world2grid(w_latlon[0], w_latlon[1], 
                         currentsTransform, currentsExtent_u["rows"])
-                dcost = calcWork(v_currents, w_currents, currentsGrid_u, currentsGrid_v, targetSpeed_mps)
+                dcost = calcWork(v_currents, w_currents, currentsGrid_u, currentsGrid_v, 
+                        targetSpeed_mps, timeIn = timeSoFar[v])
             # Add up cost
             cost = D[v] + dcost
 
@@ -200,7 +209,11 @@ def dijkstra(graph, origin, destination,
             elif w not in Q or cost < Q[w]:
                 Q[w] = cost
                 P[w] = v
-    return (D, P)
+
+                timeSoFar[w] = timeSoFar[v] + haversine(v_latlon, w_latlon)
+
+
+    return (D, P, Q[v], timeSoFar[v])
 
 class priority_dict(dict):
     """Dictionary that can be used as a priority queue.
@@ -356,7 +369,7 @@ if currentsRasterFile_u is not None and currentsRasterFile_v is not None:
     print("  u: {}".format(currentsRasterFile_u))
     print("  v: {}".format(currentsRasterFile_v))
 
-# Load graph
+# Default to normal dictionary-formatted graph
 graph = pickle.load(open(graphFile, 'rb'))
 
 # Convert latlon -> rowcol
@@ -370,14 +383,14 @@ if usingCurrents:   # Solve with current forces --> energy cost
                 currentsGrid_u, currentsGrid_v, currentsTransform_u, currentsExtent_u,
                 targetSpeed_mps)
     else:  # Default to dijkstra
-        D, P = dijkstra(graph, start, end, 
+        D, P, C, T = dijkstra(graph, start, end, 
                 regionTransform, currentsGrid_u, currentsGrid_v, currentsTransform_u, currentsExtent_u,
                     targetSpeed_mps)
 else:   # Default to distance-based    
     if solver == "a*":
         D, P, C, T = astar(graph, start, end, regionTransform)
     else:  # Default to dijkstra
-        D, P = dijkstra(graph, start, end)
+        D, P, C, T = dijkstra(graph, start, end, regionTransform)
 
 path = []
 while 1:
@@ -394,9 +407,14 @@ for point in path[1:]:
     point_latlon = gridUtils.grid2world(point[0], point[1], regionTransform, regionExtent["rows"])
     path_distance += haversine(prev_latlon, point_latlon)
     prev_point = point
-print('Shortest path distance: {:.4f} km'.format(path_distance))
-print('              duration: {:.4f} min'.format( (path_distance / (targetSpeed_mps / 100)) / 60))
-print('                  cost: {:.4f}'.format(C))
+
+if usingCurrents:
+    print("Planning results (with currents):")
+else:
+    print("Planning results (no currents):")
+print('    Distance: {:.4f} km'.format(path_distance))
+print('    Duration: {:.4f} min'.format( (path_distance / (targetSpeed_mps / 100)) / 60))
+print('    Cost: {:.4f}'.format(C))
 
 # Plot solution path
 lats = np.zeros(numWaypoints)

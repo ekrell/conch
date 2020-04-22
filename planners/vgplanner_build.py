@@ -11,6 +11,10 @@ import geopandas as gp
 from optparse import OptionParser
 import shapefile
 import random
+from osgeo import gdal
+# Conch modules
+import rasterSetInterface as rsi
+import gridUtils
 
 ###########
 # Options #
@@ -126,20 +130,28 @@ input_shapefile = shapefile.Reader(shapeOutFile)
 shapes = input_shapefile.shapes()
 
 # Find extent
-minx = shapes[0].points[0][0]
-maxx = minx
-miny = shapes[0].points[0][1]
-maxy = miny
-for shape in shapes:
-    for point in shape.points:
-        if point[0] < minx:
-            minx = point[0]
-        elif point[0] > maxx:
-            maxx = point[0]
-        if point[1] < miny:
-            miny = point[1]
-        elif point[1] > maxy:
-            maxy = point[1]
+#minx = shapes[0].points[0][0]
+#maxx = minx
+#miny = shapes[0].points[0][1]
+#maxy = miny
+#for shape in shapes:
+#    for point in shape.points:
+#        if point[0] < minx:
+#            minx = point[0]
+#        elif point[0] > maxx:
+#            maxx = point[0]
+#        if point[1] < miny:
+#            miny = point[1]
+#        elif point[1] > maxy:
+#            maxy = point[1]
+
+# Load raster
+regionData = gdal.Open(regionRasterFile)
+regionExtent = rsi.getGridExtent(regionData)
+minx = regionExtent["minx"]
+maxx = regionExtent["maxx"]
+miny = regionExtent["miny"]
+maxy = regionExtent["maxy"]
 
 polygons = []
 for shape in shapes:
@@ -157,6 +169,7 @@ graph = vg.VisGraph()
 print('Begin building visibility graph')
 graph.build(polygons, workers = numWorkers)
 print('Done building visibility graph')
+
 # Save graph
 graph.save(graphOutFile)
 print("Saved visibility graph to file: {}".format(graphOutFile))
