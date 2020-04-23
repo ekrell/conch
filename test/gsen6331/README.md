@@ -52,7 +52,7 @@ The uniform graph, visibility graph, and extended visibility graph are made only
 		- Graph: `full_uni.pickle` 
 		- Plot: `full_uni.png`
 
-![alt text](full_uni.png "full_uni")
+![alt text](full_uni.png "full uni plot")
 
 - Mini
 	- Command: `python3 planners/gplanner_build.py -r test/gsen6331/mini.tif -g test/gsen6331/mini_uni.pickle -m test/gsen6331/mini_uni.png`
@@ -63,10 +63,34 @@ The uniform graph, visibility graph, and extended visibility graph are made only
 		- Graph: `mini_uni.pickle`
 		- Plot: `mini_uni.png`
 
-![alt text](mini_uni.png "mini_uni")
+![alt text](mini_uni.png "mini uni plot")
 
 #### Visibility graphs
 
+- Full
+	- Command: `python3 planners/vgplanner_build.py -r test/gsen6331/full.tif -g test/gsen6331/full_vg.graph -s test/gsen6331/full.shp -m test/gsen6331/full_poly.png -v test/gsen6331/full_vg.png -n 4 --build`
+	- Mean creation time (1 thread, 5 trials): 20.009 seconds
+	- Mean creation time (4 threads, 5 trials): 10.235 seconds
+	- Number of nodes: 
+	- Number of edges: 1037
+	- Files:
+		- Graph: `full_vg.graph` 
+		- Plot: `full_vg.png`
+
+![alt text](full_vg.png "full vg plot")
+
+
+- Full
+	- Command: `python3 planners/vgplanner_build.py -r test/gsen6331/mini.tif -g test/gsen6331/mini_vg.graph -s test/gsen6331/mini.shp -m test/gsen6331/mini_poly.png -v test/gsen6331/mini_vg.png -n 4 --build`
+	- Mean creation time (1 thread, 5 trials): 1.371 seconds
+	- Mean creation time (4 threads, 5 trials): 0.780 seconds
+	- Number of nodes: 
+	- Number of edges: 140
+	- Files:
+		- Graph: `mini_vg.graph` 
+		- Plot: `mini_vg.png`
+
+![alt text](mini_vg.png "mini vg plot")
 
 #### Extended visibility graphs
 
