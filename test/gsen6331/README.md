@@ -80,7 +80,7 @@ The uniform graph, visibility graph, and extended visibility graph are made only
 ![alt text](full_vg.png "full vg plot")
 
 
-- Full
+- Mini
 	- Command: `python3 planners/vgplanner_build.py -r test/gsen6331/mini.tif -g test/gsen6331/mini_vg.graph -s test/gsen6331/mini.shp -m test/gsen6331/mini_poly.png -v test/gsen6331/mini_vg.png -n 4 --build`
 	- Mean creation time (1 thread, 5 trials): 1.371 seconds
 	- Mean creation time (4 threads, 5 trials): 0.780 seconds
@@ -93,6 +93,58 @@ The uniform graph, visibility graph, and extended visibility graph are made only
 ![alt text](mini_vg.png "mini vg plot")
 
 #### Extended visibility graphs
+
+- Full (A, less added nodes)
+	- Command: `python3 planners/vg2evg.py -r test/gsen6331/full.tif -v test/gsen6331/full_vg.graph -e test/gsen6331/full_evg-a.graph -m test/gsen6331/full_evg-a.png`
+	- Params: (ydiff: 5, xdiff: 5, radius:20, threshold: 2)
+	- Base visibility graph: `full_vg.graph`
+	- Mean _additional_ creation time:
+	- Number of nodes:
+	- Number of edges:
+	- File:
+		- Graph: full_evg-a.graph
+		- Plot: full_evg-a.png
+
+![alt text](full_evg-a.png "full evg a plot")
+
+- Full (B, more added nodes)
+	- Command: `python3 planners/vg2evg.py -r test/gsen6331/full.tif -v test/gsen6331/full_vg.graph -e test/gsen6331/full_evg-a.graph -m test/gsen6331/full_evg-a.png`
+	- Params: (ydiff: 2.5, xdiff: 2.5, radius:30, threshold: 2)
+	- Base visibility graph: `full_vg.graph`
+	- Mean _additional_ creation time:
+	- Number of nodes:
+	- Number of edges:
+	- File:
+		- Graph: full_evg-b.graph
+		- Plot: full_evg-b.png
+
+![alt text](full_evg-b.png "full evg b plot")
+
+- Mini (A, less added nodes)
+	- Command: `python3 planners/vg2evg.py -r test/gsen6331/mini.tif -v test/gsen6331/mini_vg.graph -e test/gsen6331/mini_evg-a.graph -m test/gsen6331/mini_evg-a.png`
+	- Params: (ydiff: 10, xdiff: 10, radius: 15, threshold: 2)
+	- Base visibility graph: `mini_vg.graph`
+	- Mean _additional_ creation time:
+	- Number of nodes:
+	- Number of edges:
+	- File:
+		- Graph: mini_evg-a.graph
+		- Plot: mini_evg-a.png
+
+![alt text](mini_evg-a.png "mini evg a plot")
+
+- Mini (B, more added nodes)
+	- Command: `python3 planners/vg2evg.py -r test/gsen6331/mini.tif -v test/gsen6331/mini_vg.graph -e test/gsen6331/mini_evg-a.graph -m test/gsen6331/mini_evg-a.png`
+	- Params: (ydiff: 7, xdiff: 7, radius:20, threshold: 2)
+	- Base visibility graph: `mini_vg.graph`
+	- Mean _additional_ creation time:
+	- Number of nodes:
+	- Number of edges:
+	- File:
+		- Graph: mini_evg-b.graph
+		- Plot: mini_evg-b.png
+
+![alt text](mini_evg-b.png "mini evg b plot")
 
 
 ### Path planning
