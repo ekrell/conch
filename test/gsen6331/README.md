@@ -63,7 +63,7 @@ The uniform graph, visibility graph, and extended visibility graph are made only
 		- Graph: `mini_uni.pickle`
 		- Plot: `mini_uni.png`
 
-![alt text](full_uni.png "full_uni")
+![alt text](mini_uni.png "mini_uni")
 
 #### Visibility graphs
 
