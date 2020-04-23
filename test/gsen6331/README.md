@@ -264,11 +264,136 @@ The uniform graph, visibility graph, and extended visibility graph are made only
 ![alt text](FP1-AD.png "FP1-AD path plot")
 
 
+- Experiment: FP2-AA
+	- Setup:
+		- Mission: FP2
+		- Solver: Dijkstra
+		- Graph: uniform
+		- Currents? disabled
+	- Results:
+		- Planning time: 20.7169 seconds
+		- Distance: 9.5884 km
+		- Duration: 31.9612 min
+		- Cost (currents): N/A
+
+	python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_uni.pickle -u None --sy 42.33283  --sx -70.97322  --dy 42.27183  --dx -70.90341  --solver dijkstra --speed 0.5 -m test/gsen6331/FP2-AA.png
+
+![alt text](FP2-AA.png "FP2-AA path plot")
+
+- Experiment: FP2-AB
+	- Setup:
+		- Mission: FP2
+		- Solver: Astar
+		- Graph: uniform
+		- Currents? disabled
+	- Results:
+		- Planning time: 22.9612 seconds
+		- Distance: 9.5884 km
+		- Duration: 31.9612 min
+		- Cost (currents): N/A
+
+	python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_uni.pickle -u None --sy 42.33283  --sx -70.97322  --dy 42.27183  --dx -70.90341 --solver a* --speed 0.5 -m test/gsen6331/FP2-AB.png
+
+![alt text](FP2-AB.png "FP2-AB path plot")
 
 
+- Experiment: FP2-AC
+	- Setup:
+		- Mission: FP2
+		- Solver: Dijkstra (current-aware)
+		- Graph: uniform
+		- Currents? enabled
+	- Results:
+		- Planning time: 267.6161 seconds
+		- Distance: 10.0603 km
+		- Duration: 33.5343 min
+		- Cost (currents): 281.1850
+
+	python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_uni.pickle -u None --sy 42.33283  --sx -70.97322  --dy 42.27183  --dx -70.90341 --solver dijkstra --speed 0.5 -m test/gsen6331/FP2-AC.png --currents_mag test/gsen6331/waterMag.tif --currents_dir test/gsen6331/waterDir.tif
+
+![alt text](FP2-AC.png "FP2-AC path plot")
+
+- Experiment: FP2-AD
+	- Setup:
+		- Mission: FP2
+		- Solver: Astar (current-aware)
+		- Graph: uniform
+		- Currents? enabled
+	- Results:
+		- Planning time: 264.5657
+		- Distance: 10.0603 km
+		- Duration: 33.5343 min
+		- Cost (currents): 281.0374
+
+	python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_uni.pickle -u None --sy 42.33283  --sx -70.97322  --dy 42.27183  --dx -70.90341  --solver a* --speed 0.5 -m test/gsen6331/FP2-AD.png --currents_mag test/gsen6331/waterMag.tif --currents_dir test/gsen6331/waterDir.tif
+
+![alt text](FP2-AD.png "FP2-AD path plot")
 
 
+- Experiment: FP3-AA
+	- Setup:
+		- Mission: FP3
+		- Solver: Dijkstra
+		- Graph: uniform
+		- Currents? disabled
+	- Results:
+		- Planning time: 
+		- Distance:
+		- Duration: 
+		- Cost (currents): N/A
 
+	python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_uni.pickle -u None --sy 42.36221 --sx -70.95617 --dy 42.35282 --dx -70.97952 --solver dijkstra --speed 0.5 -m test/gsen6331/FP3-AA.png
+
+![alt text](FP3-AA.png "FP3-AA path plot")
+
+- Experiment: FP3-AB
+	- Setup:
+		- Mission: FP3
+		- Solver: Astar
+		- Graph: uniform
+		- Currents? disabled
+	- Results:
+		- Planning time: 
+		- Distance: 
+		- Duration: 
+		- Cost (currents): N/A
+
+	python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_uni.pickle -u None --sy 42.36221 --sx -70.95617 --dy 42.35282 --dx -70.97952  --solver a* --speed 0.5 -m test/gsen6331/FP3-AB.png
+
+![alt text](FP3-AB.png "FP3-AB path plot")
+
+
+- Experiment: FP3-AC
+	- Setup:
+		- Mission: FP3
+		- Solver: Dijkstra (current-aware)
+		- Graph: uniform
+		- Currents? enabled
+	- Results:
+		- Planning time: 
+		- Distance: 
+		- Duration: 
+		- Cost (currents): 
+
+	python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_uni.pickle -u None --sy 42.36221 --sx -70.95617 --dy 42.35282 --dx -70.97952 --solver dijkstra --speed 0.5 -m test/gsen6331/FP3-AC.png --currents_mag test/gsen6331/waterMag.tif --currents_dir test/gsen6331/waterDir.tif
+
+![alt text](FP3-AC.png "FP3-AC path plot")
+
+- Experiment: FP3-AD
+	- Setup:
+		- Mission: FP3
+		- Solver: Astar (current-aware)
+		- Graph: uniform
+		- Currents? enabled
+	- Results:
+		- Planning time: 
+		- Distance: 
+		- Duration: 
+		- Cost (currents): 
+
+	python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_uni.pickle -u None --sy 42.36221 --sx -70.95617 --dy 42.35282 --dx -70.97952 --solver a* --speed 0.5 -m test/gsen6331/FP3-AD.png --currents_mag test/gsen6331/waterMag.tif --currents_dir test/gsen6331/waterDir.tif
+
+![alt text](FP3-AD.png "FP3-AD path plot")
 
 
 
