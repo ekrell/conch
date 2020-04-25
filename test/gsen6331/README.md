@@ -105,7 +105,7 @@ The uniform graph, visibility graph, and extended visibility graph are made only
 #### Extended visibility graphs
 
 - Full (A, less added nodes)
-	- Params: (ydiff: 5, xdiff: 5, radius:20, threshold: 2)
+	- Params: (ydiff: 10, xdiff: 10, radius:10, threshold: 2)
 	- Base visibility graph: `full_vg.graph`
 	- Mean _additional_ creation time:
 	- Number of nodes:
@@ -114,7 +114,7 @@ The uniform graph, visibility graph, and extended visibility graph are made only
 		- Graph: full_evg-a.graph
 		- Plot: full_evg-a.png
 
-```python3 planners/vg2evg.py -r test/gsen6331/full.tif -v test/gsen6331/full_vg.graph -e test/gsen6331/full_evg-a.graph -m test/gsen6331/full_evg-a.png
+```python3 planners/vg2evg.py -r test/gsen6331/full.tif -v test/gsen6331/full_vg.graph -e test/gsen6331/full_evg-a.graph -m test/gsen6331/full_evg-a.png --xdiff 10 --ydiff 10 --radius 10 --threshold 2
 ```
 ![alt text](full_evg-a.png "full evg a plot")
 
@@ -128,7 +128,7 @@ The uniform graph, visibility graph, and extended visibility graph are made only
 		- Graph: full_evg-b.graph
 		- Plot: full_evg-b.png
 
-```python3 planners/vg2evg.py -r test/gsen6331/full.tif -v test/gsen6331/full_vg.graph -e test/gsen6331/full_evg-a.graph -m test/gsen6331/full_evg-a.png
+```python3 planners/vg2evg.py -r test/gsen6331/full.tif -v test/gsen6331/full_vg.graph -e test/gsen6331/full_evg-b.graph -m test/gsen6332/full_evg-b.png --xdiff 5 --ydiff 5 --radius 15 --threshold 2
 ```
 
 ![alt text](full_evg-b.png "full evg b plot")
@@ -158,7 +158,7 @@ The uniform graph, visibility graph, and extended visibility graph are made only
 		- Graph: mini_evg-b.graph
 		- Plot: mini_evg-b.png
 
-```python3 planners/vg2evg.py -r test/gsen6331/mini.tif -v test/gsen6331/mini_vg.graph -e test/gsen6331/mini_evg-a.graph -m test/gsen6331/mini_evg-a.png
+```python3 planners/vg2evg.py -r test/gsen6331/mini.tif -v test/gsen6331/mini_vg.graph -e test/gsen6331/mini_evg-b.graph -m test/gsen6331/mini_evg-b.png
 ```
 
 ![alt text](mini_evg-b.png "mini evg b plot")
@@ -199,9 +199,9 @@ The uniform graph, visibility graph, and extended visibility graph are made only
 		- Graph: uniform
 		- Currents? disabled
 	- Results:
-		- Planning time: 19.5863 seconds
-		- Distance: 9.5239 km
-		- Duration: 31.7463 min
+		- Planning time:
+		- Distance:
+		- Duration:
 		- Cost (currents): N/A
 
 ```python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_uni.pickle -u None --sy 42.32343  --sx -70.99428  --dy 42.33600  --dx -70.88737  --solver dijkstra --speed 0.5 -m test/gsen6331/FP1-AA.png
@@ -218,9 +218,9 @@ The uniform graph, visibility graph, and extended visibility graph are made only
 		- Graph: uniform
 		- Currents? disabled
 	- Results:
-		- Planning time: 21.6373 seconds
-		- Distance: 9.5239 km
-		- Duration: 31.7463 min
+		- Planning time:
+		- Distance:
+		- Duration:
 		- Cost (currents): N/A
 
 ```python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_uni.pickle -u None --sy 42.32343  --sx -70.99428  --dy 42.33600  --dx -70.88737  --solver a* --speed 0.5 -m test/gsen6331/FP1-AB.png
@@ -237,10 +237,10 @@ The uniform graph, visibility graph, and extended visibility graph are made only
 		- Graph: uniform
 		- Currents? enabled
 	- Results:
-		- Planning time: 205.7763 seconds
-		- Distance: 13.1283 km
-		- Duration: 43.7610 min
-		- Cost (currents): 236.8804
+		- Planning time:
+		- Distance:
+		- Duration:
+		- Cost (currents):
 
 ```python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_uni.pickle -u None --sy 42.32343  --sx -70.99428  --dy 42.33600  --dx -70.88737  --solver dijkstra --speed 0.5 -m test/gsen6331/FP1-AC.png --currents_mag test/gsen6331/waterMag.tif --currents_dir test/gsen6331/waterDir.tif
 ```
@@ -256,10 +256,10 @@ The uniform graph, visibility graph, and extended visibility graph are made only
 		- Graph: uniform
 		- Currents? enabled
 	- Results:
-		- Planning time: 201.2631 seconds
-		- Distance: 13.1283 km
-		- Duration: 43.7610 min
-		- Cost (currents): 236.7048
+		- Planning time:
+		- Distance:
+		- Duration:
+		- Cost (currents):
 
 ```python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_uni.pickle -u None --sy 42.32343  --sx -70.99428  --dy 42.33600  --dx -70.88737  --solver a* --speed 0.5 -m test/gsen6331/FP1-AD.png --currents_mag test/gsen6331/waterMag.tif --currents_dir test/gsen6331/waterDir.tif
 ```
@@ -275,9 +275,9 @@ The uniform graph, visibility graph, and extended visibility graph are made only
 		- Graph: uniform
 		- Currents? disabled
 	- Results:
-		- Planning time: 20.7169 seconds
-		- Distance: 9.5884 km
-		- Duration: 31.9612 min
+		- Planning time:
+		- Distance:
+		- Duration:
 		- Cost (currents): N/A
 
 ```python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_uni.pickle -u None --sy 42.33283  --sx -70.97322  --dy 42.27183  --dx -70.90341  --solver dijkstra --speed 0.5 -m test/gsen6331/FP2-AA.png
@@ -294,9 +294,9 @@ The uniform graph, visibility graph, and extended visibility graph are made only
 		- Graph: uniform
 		- Currents? disabled
 	- Results:
-		- Planning time: 22.9612 seconds
-		- Distance: 9.5884 km
-		- Duration: 31.9612 min
+		- Planning time:
+		- Distance:
+		- Duration:
 		- Cost (currents): N/A
 
 ```python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_uni.pickle -u None --sy 42.33283  --sx -70.97322  --dy 42.27183  --dx -70.90341 --solver a* --speed 0.5 -m test/gsen6331/FP2-AB.png
@@ -313,10 +313,10 @@ The uniform graph, visibility graph, and extended visibility graph are made only
 		- Graph: uniform
 		- Currents? enabled
 	- Results:
-		- Planning time: 267.6161 seconds
-		- Distance: 10.0603 km
-		- Duration: 33.5343 min
-		- Cost (currents): 281.1850
+		- Planning time:
+		- Distance:
+		- Duration:
+		- Cost (currents):
 
 ```python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_uni.pickle -u None --sy 42.33283  --sx -70.97322  --dy 42.27183  --dx -70.90341 --solver dijkstra --speed 0.5 -m test/gsen6331/FP2-AC.png --currents_mag test/gsen6331/waterMag.tif --currents_dir test/gsen6331/waterDir.tif
 ```
@@ -332,10 +332,10 @@ The uniform graph, visibility graph, and extended visibility graph are made only
 		- Graph: uniform
 		- Currents? enabled
 	- Results:
-		- Planning time: 264.5657
-		- Distance: 10.0603 km
-		- Duration: 33.5343 min
-		- Cost (currents): 281.0374
+		- Planning time:
+		- Distance:
+		- Duration:
+		- Cost (currents):
 
 ```python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_uni.pickle -u None --sy 42.33283  --sx -70.97322  --dy 42.27183  --dx -70.90341  --solver a* --speed 0.5 -m test/gsen6331/FP2-AD.png --currents_mag test/gsen6331/waterMag.tif --currents_dir test/gsen6331/waterDir.tif
 ```
@@ -351,9 +351,9 @@ The uniform graph, visibility graph, and extended visibility graph are made only
 		- Graph: uniform
 		- Currents? disabled
 	- Results:
-		- Planning time: 
+		- Planning time:
 		- Distance:
-		- Duration: 
+		- Duration:
 		- Cost (currents): N/A
 
 ```python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_uni.pickle -u None --sy 42.36221 --sx -70.95617 --dy 42.35282 --dx -70.97952 --solver dijkstra --speed 0.5 -m test/gsen6331/FP3-AA.png
@@ -370,9 +370,9 @@ The uniform graph, visibility graph, and extended visibility graph are made only
 		- Graph: uniform
 		- Currents? disabled
 	- Results:
-		- Planning time: 6.2303 seconds
-		- Distance: 4.8091 km
-		- Duration: 16.0303 min
+		- Planning time:
+		- Distance:
+		- Duration:
 		- Cost (currents): N/A
 
 ```python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_uni.pickle -u None --sy 42.36221 --sx -70.95617 --dy 42.35282 --dx -70.97952  --solver a* --speed 0.5 -m test/gsen6331/FP3-AB.png
@@ -389,10 +389,10 @@ The uniform graph, visibility graph, and extended visibility graph are made only
 		- Graph: uniform
 		- Currents? enabled
 	- Results:
-		- Planning time: 100.8932 seconds
-		- Distance: 4.8164 km
-		- Duration: 16.0546 min
-		- Cost (currents): 177.8319
+		- Planning time:
+		- Distance:
+		- Duration:
+		- Cost (currents):
 
 ```python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_uni.pickle -u None --sy 42.36221 --sx -70.95617 --dy 42.35282 --dx -70.97952 --solver dijkstra --speed 0.5 -m test/gsen6331/FP3-AC.png --currents_mag test/gsen6331/waterMag.tif --currents_dir test/gsen6331/waterDir.tif
 ```
@@ -408,10 +408,10 @@ The uniform graph, visibility graph, and extended visibility graph are made only
 		- Graph: uniform
 		- Currents? enabled
 	- Results:
-		- Planning time: 101.9508 seconds
-		- Distance: 4.8164 km
-		- Duration: 16.0546 min
-		- Cost (currents): 177.8213
+		- Planning time:
+		- Distance:
+		- Duration:
+		- Cost (currents):
 
 ```python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_uni.pickle -u None --sy 42.36221 --sx -70.95617 --dy 42.35282 --dx -70.97952 --solver a* --speed 0.5 -m test/gsen6331/FP3-AD.png --currents_mag test/gsen6331/waterMag.tif --currents_dir test/gsen6331/waterDir.tif
 ```
@@ -427,9 +427,9 @@ The uniform graph, visibility graph, and extended visibility graph are made only
 		- Graph: uniform
 		- Currents? disabled
 	- Results:
-		- Planning time: 4.0744 seconds
-		- Distance: 4.5610 km
-		- Duration: 15.2033 min
+		- Planning time:
+		- Distance:
+		- Duration:
 		- Cost (currents): N/A
 
 ```python3 planners/gplanner_solve.py -r test/gsen6331/mini.tif -g test/gsen6331/mini_uni.pickle -u None --sy 42.29 --sx -70.92  --dy 42.30  --dx -70.96  --solver dijkstra --speed 0.5 -m test/gsen6331/MP1-AA.png
@@ -446,9 +446,9 @@ The uniform graph, visibility graph, and extended visibility graph are made only
 		- Graph: uniform
 		- Currents? disabled
 	- Results:
-		- Planning time: 4.3459 seconds
-		- Distance: 4.5610 km
-		- Duration: 15.2033 min
+		- Planning time:
+		- Distance:
+		- Duration:
 		- Cost (currents): N/A
 
 ```python3 planners/gplanner_solve.py -r test/gsen6331/mini.tif -g test/gsen6331/mini_uni.pickle -u None --sy 42.29 --sx -70.92  --dy 42.30  --dx -70.96 --solver a* --speed 0.5 -m test/gsen6331/MP1-AB.png
@@ -465,10 +465,10 @@ The uniform graph, visibility graph, and extended visibility graph are made only
 		- Graph: uniform
 		- Currents? enabled
 	- Results:
-		- Planning time: 34.3144 seconds
-		- Distance: 5.2350 km
-		- Duration: 17.4499 min
-		- Cost (currents): 113.7643
+		- Planning time:
+		- Distance:
+		- Duration:
+		- Cost (currents):
 
 ```python3 planners/gplanner_solve.py -r test/gsen6331/mini.tif -g test/gsen6331/mini_uni.pickle -u None --sy 42.29 --sx -70.92  --dy 42.30  --dx -70.96 --solver dijkstra --speed 0.5 -m test/gsen6331/MP1-AC.png --currents_mag test/gsen6331/waterMag.tif --currents_dir test/gsen6331/waterDir.tif
 ```
@@ -484,10 +484,10 @@ The uniform graph, visibility graph, and extended visibility graph are made only
 		- Graph: uniform
 		- Currents? enabled
 	- Results:
-		- Planning time: 40.9089 seconds
-		- Distance: 5.2350 km
-		- Duration: 17.4499 min
-		- Cost (currents): 113.7755
+		- Planning time:
+		- Distance:
+		- Duration:
+		- Cost (currents):
 
 ```python3 planners/gplanner_solve.py -r test/gsen6331/mini.tif -g test/gsen6331/mini_uni.pickle -u None --sy 42.29 --sx -70.92  --dy 42.30  --dx -70.96  --solver a* --speed 0.5 -m test/gsen6331/MP1-AD.png --currents_mag test/gsen6331/waterMag.tif --currents_dir test/gsen6331/waterDir.tif
 ```
@@ -503,9 +503,9 @@ The uniform graph, visibility graph, and extended visibility graph are made only
 		- Graph: uniform
 		- Currents? disabled
 	- Results:
-		- Planning time: 0.011194 seconds
-		- Distance: 11.3801 km
-		- Duration: 37.9336 min
+		- Planning time:
+		- Distance:
+		- Duration:
 		- Cost (currents): N/A
 
 ```
@@ -526,9 +526,9 @@ The uniform graph, visibility graph, and extended visibility graph are made only
 		- Graph: uniform
 		- Currents? disabled
 	- Results:
-		- Planning time: 0.014285 seconds
-		- Distance: 11.3801 km
-		- Duration: 37.9336 min
+		- Planning time:
+		- Distance:
+		- Duration:
 		- Cost (currents): N/A
 
 ```
@@ -550,10 +550,10 @@ The uniform graph, visibility graph, and extended visibility graph are made only
 		- Graph: uniform
 		- Currents? enabled
 	- Results:
-		- Planning time: 1.743125 seconds
-		- Distance: 13.0744 km
-		- Duration: 43.5814 min
-		- Cost (currents): 395.6258
+		- Planning time:
+		- Distance:
+		- Duration:
+		- Cost (currents):
 
 ```
 		# Convert visibility graph format to standard format
@@ -573,10 +573,10 @@ The uniform graph, visibility graph, and extended visibility graph are made only
 		- Graph: uniform
 		- Currents? enabled
 	- Results:
-		- Planning time: 1.85576 seconds
-		- Distance: 13.0744 km
-		- Duration: 43.5814 min
-		- Cost (currents): 395.3967
+		- Planning time:
+		- Distance:
+		- Duration:
+		- Cost (currents):
 
 ```
 		# Convert visibility graph format to standard format
@@ -596,9 +596,9 @@ The uniform graph, visibility graph, and extended visibility graph are made only
 		- Graph: uniform
 		- Currents? disabled
 	- Results:
-		- Planning time: 0.0095270 seconds
-		- Distance: 12.5727 km
-		- Duration: 41.9089 min
+		- Planning time:
+		- Distance:
+		- Duration:
 		- Cost (currents): N/A
 
 ```
@@ -622,9 +622,9 @@ The uniform graph, visibility graph, and extended visibility graph are made only
 		- Graph: uniform
 		- Currents? disabled
 	- Results:
-		- Planning time: 0.01472187 seconds
-		- Distance: 12.5727 km
-		- Duration: 41.9089 min
+		- Planning time:
+		- Distance:
+		- Duration:
 		- Cost (currents): N/A
 
 ```
@@ -646,10 +646,10 @@ The uniform graph, visibility graph, and extended visibility graph are made only
 		- Graph: uniform
 		- Currents? enabled
 	- Results:
-		- Planning time: 2.454721 seconds
-		- Distance: Distance: 12.7219 km
-		- Duration: Duration: 42.4063 min
-		- Cost (currents): 552.5717
+		- Planning time:
+		- Distance:
+		- Duration:
+		- Cost (currents):
 
 ```
 		# Convert visibility graph format to standard format
@@ -670,10 +670,10 @@ The uniform graph, visibility graph, and extended visibility graph are made only
 		- Graph: uniform
 		- Currents? enabled
 	- Results:
-		- Planning time: 2.57866
-		- Distance: 12.7219 km
-		- Duration: 42.4063 min
-		- Cost (currents): 552.5395
+		- Planning time:
+		- Distance:
+		- Duration:
+		- Cost (currents):
 
 ```
 		# Convert visibility graph format to standard format
@@ -693,9 +693,9 @@ The uniform graph, visibility graph, and extended visibility graph are made only
 		- Graph: uniform
 		- Currents? disabled
 	- Results:
-		- Planning time: 0.002020120 seconds
-		- Distance: 4.5148 km
-		- Duration: 15.0493 min
+		- Planning time:
+		- Distance:
+		- Duration:
 		- Cost (currents): N/A
 
 
@@ -718,9 +718,9 @@ The uniform graph, visibility graph, and extended visibility graph are made only
 		- Graph: uniform
 		- Currents? disabled
 	- Results:
-		- Planning time: 0.003131389 seconds
-		- Distance: 4.5148 km
-		- Duration: 15.0493 min
+		- Planning time:
+		- Distance:
+		- Duration:
 		- Cost (currents): N/A
 
 ```
@@ -742,10 +742,10 @@ The uniform graph, visibility graph, and extended visibility graph are made only
 		- Graph: uniform
 		- Currents? enabled
 	- Results:
-		- Planning time: 1.315907 seconds
-		- Distance: 4.5148 km
-		- Duration: 15.0493 min
-		- Cost (currents): 172.5614
+		- Planning time:
+		- Distance:
+		- Duration:
+		- Cost (currents):
 
 
 ```
@@ -766,10 +766,10 @@ The uniform graph, visibility graph, and extended visibility graph are made only
 		- Graph: uniform
 		- Currents? enabled
 	- Results:
-		- Planning time: 1.1173827 seconds
-		- Distance: 4.5148 km
-		- Duration: 15.0493 min
-		- Cost (currents): 172.5552
+		- Planning time:
+		- Distance:
+		- Duration:
+		- Cost (currents):
 
 ```
 		# Convert visibility graph format to standard format
@@ -789,9 +789,9 @@ The uniform graph, visibility graph, and extended visibility graph are made only
 		- Graph: uniform
 		- Currents? disabled
 	- Results:
-		- Planning time: 0.0039868 seconds
-		- Distance: 4.2390 km
-		- Duration: 14.1300 min
+		- Planning time:
+		- Distance:
+		- Duration:
 		- Cost (currents): N/A
 
 ```
@@ -812,9 +812,9 @@ The uniform graph, visibility graph, and extended visibility graph are made only
 		- Graph: uniform
 		- Currents? disabled
 	- Results:
-		- Planning time: 0.00468802 seconds
-		- Distance: 4.2390 km
-		- Duration: 14.1300 min
+		- Planning time:
+		- Distance:
+		- Duration:
 		- Cost (currents): N/A
 
 ```
@@ -836,10 +836,10 @@ The uniform graph, visibility graph, and extended visibility graph are made only
 		- Graph: uniform
 		- Currents? enabled
 	- Results:
-		- Planning time: 0.623149 seconds
-		- Distance: 4.7388 km
-		- Duration: 15.7960 min
-		- Cost (currents): 171.4314
+		- Planning time:
+		- Distance:
+		- Duration:
+		- Cost (currents):
 ```
 		# Convert visibility graph format to standard format
 		python3 planners/vg2g.py -r test/gsen6331/mini.tif -v test/gsen6331/mini_vg.graph -o test/gsen6331/mini_vg_mp1.pickle --sy 42.29 --sx -70.92  --dy 42.30  --dx -70.96
@@ -858,10 +858,10 @@ The uniform graph, visibility graph, and extended visibility graph are made only
 		- Graph: uniform
 		- Currents? enabled
 	- Results:
-		- Planning time: 0.7158897 seconds
-		- Distance: 4.7388 km
-		- Duration: 15.7960 min
-		- Cost (currents): 171.4087
+		- Planning time:
+		- Distance:
+		- Duration:
+		- Cost (currents):
 
 ```
 		# Convert visibility graph format to standard format
@@ -871,6 +871,777 @@ The uniform graph, visibility graph, and extended visibility graph are made only
 ```
 
 ![alt text](MP1-BD.png "MP1-BD path plot")
+
+
+
+- Experiment: FP1-CA
+	- Setup:
+		- Mission: FP1
+		- Solver: Dijkstra
+		- Graph: uniform
+		- Currents? disabled
+	- Results:
+		- Planning time:
+		- Distance:
+		- Duration:
+		- Cost (currents): N/A
+
+```
+		# Convert visibility graph format to standard format
+		python3 planners/vg2g.py -r test/gsen6331/full.tif -v test/gsen6331/full_evg-a.graph -o test/gsen6331/full_evg-a_fp1.pickle --sy 42.32343  --sx -70.99428  --dy 42.33600  --dx -70.88737
+		# Solve
+		python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_evg-a_fp1.pickle -u None --sy 42.32343  --sx -70.99428  --dy 42.33600  --dx -70.88737  --solver dijkstra --speed 0.5 -m test/gsen6331/FP1-CA.png
+```
+
+![alt text](FP1-CA.png "FP1-CA path plot")
+
+
+
+- Experiment: FP1-CB
+	- Setup:
+		- Mission: FP1
+		- Solver: Astar
+		- Graph: uniform
+		- Currents? disabled
+	- Results:
+		- Planning time:
+		- Distance:
+		- Duration:
+		- Cost (currents): N/A
+
+```
+		# Convert visibility graph format to standard format
+		python3 planners/vg2g.py -r test/gsen6331/full.tif -v test/gsen6331/full_evg-a.graph -o test/gsen6331/full_evg-a_fp1.pickle --sy 42.32343  --sx -70.99428  --dy 42.33600  --dx -70.88737
+		# Solve
+		python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_evg-a_fp1.pickle -u None --sy 42.32343  --sx -70.99428  --dy 42.33600  --dx -70.88737  --solver a* --speed 0.5 -m test/gsen6331/FP1-CB.png
+```
+
+
+![alt text](FP1-CB.png "FP1-CB path plot")
+
+
+
+- Experiment: FP1-CC
+	- Setup:
+		- Mission: FP1
+		- Solver: Dijkstra (current-aware)
+		- Graph: uniform
+		- Currents? enabled
+	- Results:
+		- Planning time:
+		- Distance:
+		- Duration:
+		- Cost (currents):
+
+```
+		# Convert visibility graph format to standard format
+		python3 planners/vg2g.py -r test/gsen6331/full.tif -v test/gsen6331/full_evg-a.graph -o test/gsen6331/full_evg-a_fp1.pickle --sy 42.32343  --sx -70.99428  --dy 42.33600  --dx -70.88737
+		# Solve
+		python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_evg-a_fp1.pickle -u None --sy 42.32343  --sx -70.99428  --dy 42.33600  --dx -70.88737  --solver dijkstra --speed 0.5 -m test/gsen6331/FP1-CC.png --currents_mag test/gsen6331/waterMag.tif --currents_dir test/gsen6331/waterDir.tif
+```
+
+![alt text](FP1-CC.png "FP1-CC path plot")
+
+
+
+- Experiment: FP1-CD
+	- Setup:
+		- Mission: FP1
+		- Solver: Astar (current-aware)
+		- Graph: uniform
+		- Currents? enabled
+	- Results:
+		- Planning time:
+		- Distance:
+		- Duration:
+		- Cost (currents):
+
+```
+		# Convert visibility graph format to standard format
+		python3 planners/vg2g.py -r test/gsen6331/full.tif -v test/gsen6331/full_evg-a.graph -o test/gsen6331/full_evg-a_fp1.pickle --sy 42.32343  --sx -70.99428  --dy 42.33600  --dx -70.88737
+		# Solve
+		python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_evg-a_fp1.pickle -u None --sy 42.32343  --sx -70.99428  --dy 42.33600  --dx -70.88737  --solver a* --speed 0.5 -m test/gsen6331/FP1-CD.png --currents_mag test/gsen6331/waterMag.tif --currents_dir test/gsen6331/waterDir.tif
+```
+
+![alt text](FP1-CD.png "FP1-CD path plot")
+
+
+
+- Experiment: FP2-CA
+	- Setup:
+		- Mission: FP2
+		- Solver: Dijkstra
+		- Graph: uniform
+		- Currents? disabled
+	- Results:
+		- Planning time:
+		- Distance:
+		- Duration:
+		- Cost (currents): N/A
+
+```
+		# Convert visibility graph format to standard format
+		python3 planners/vg2g.py -r test/gsen6331/full.tif -v test/gsen6331/full_evg-a.graph -o test/gsen6331/full_evg-a_fp2.pickle --sy 42.33283 --sx -70.97322  --dy 42.27183  --dx -70.903406
+		# Solve
+		python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_evg-a_fp2.pickle -u None --sy 42.33283  --sx -70.97322  --dy 42.27183  --dx -70.903406  --solver dijkstra --speed 0.5 -m test/gsen6331/FP2-CA.png
+```
+
+
+
+
+![alt text](FP2-CA.png "FP2-CA path plot")
+
+
+
+- Experiment: FP2-CB
+	- Setup:
+		- Mission: FP2
+		- Solver: Astar
+		- Graph: uniform
+		- Currents? disabled
+	- Results:
+		- Planning time:
+		- Distance:
+		- Duration:
+		- Cost (currents): N/A
+
+```
+		# Convert visibility graph format to standard format
+		python3 planners/vg2g.py -r test/gsen6331/full.tif -v test/gsen6331/full_evg-a.graph -o test/gsen6331/full_evg-a_fp2.pickle --sy 42.33283 --sx -70.97322  --dy 42.27183  --dx -70.903406
+		# Solve
+		python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_evg-a_fp2.pickle -u None --sy 42.33283  --sx -70.97322  --dy 42.27183  --dx -70.903406  --solver a* --speed 0.5 -m test/gsen6331/FP2-CB.png
+```
+
+
+![alt text](FP2-CB.png "FP2-CB path plot")
+
+
+
+- Experiment: FP2-CC
+	- Setup:
+		- Mission: FP2
+		- Solver: Dijkstra (current-aware)
+		- Graph: uniform
+		- Currents? enabled
+	- Results:
+		- Planning time:
+		- Distance:
+		- Duration:
+		- Cost (currents):
+
+```
+		# Convert visibility graph format to standard format
+		python3 planners/vg2g.py -r test/gsen6331/full.tif -v test/gsen6331/full_evg-a.graph -o test/gsen6331/full_evg-a_fp2.pickle --sy 42.33283 --sx -70.97322  --dy 42.27183  --dx -70.903406
+		# Solve
+		python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_evg-a_fp2.pickle -u None --sy 42.33283  --sx -70.97322  --dy 42.27183  --dx -70.903406  --solver dijkstra --speed 0.5 -m test/gsen6331/FP2-CC.png --currents_mag test/gsen6331/waterMag.tif --currents_dir test/gsen6331/waterDir.tif
+```
+
+
+![alt text](FP2-CC.png "FP2-CC path plot")
+
+
+
+- Experiment: FP2-CD
+	- Setup:
+		- Mission: FP2
+		- Solver: Astar (current-aware)
+		- Graph: uniform
+		- Currents? enabled
+	- Results:
+		- Planning time:
+		- Distance:
+		- Duration:
+		- Cost (currents):
+
+```
+		# Convert visibility graph format to standard format
+		python3 planners/vg2g.py -r test/gsen6331/full.tif -v test/gsen6331/full_evg-a.graph -o test/gsen6331/full_evg-a_fp2.pickle --sy 42.33283 --sx -70.97322  --dy 42.27183  --dx -70.903406
+		# Solve
+		python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_evg-a_fp2.pickle -u None --sy 42.33283  --sx -70.97322  --dy 42.27183  --dx -70.903406  --solver a* --speed 0.5 -m test/gsen6331/FP2-CD.png --currents_mag test/gsen6331/waterMag.tif --currents_dir test/gsen6331/waterDir.tif
+```
+
+![alt text](FP2-CD.png "FP2-CD path plot")
+
+
+
+- Experiment: FP3-CA
+	- Setup:
+		- Mission: FP3
+		- Solver: Dijkstra
+		- Graph: uniform
+		- Currents? disabled
+	- Results:
+		- Planning time:
+		- Distance:
+		- Duration:
+		- Cost (currents): N/A
+
+
+```
+		# Convert visibility graph format to standard format
+		python3 planners/vg2g.py -r test/gsen6331/full.tif -v test/gsen6331/full_evg-a.graph -o test/gsen6331/full_evg-a_fp3.pickle --sy 42.362209 --sx -70.956174  --dy 42.35282  --dx -70.97952
+		# Solve
+		python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_evg-a_fp3.pickle -u None --sy 42.362209 --sx -70.956174  --dy 42.35282  --dx -70.97952  --solver dijkstra --speed 0.5 -m test/gsen6331/FP3-CA.png
+```
+
+
+![alt text](FP3-CA.png "FP3-CA path plot")
+
+
+
+- Experiment: FP3-CB
+	- Setup:
+		- Mission: FP3
+		- Solver: Astar
+		- Graph: uniform
+		- Currents? disabled
+	- Results:
+		- Planning time:
+		- Distance:
+		- Duration:
+		- Cost (currents): N/A
+
+```
+		# Convert visibility graph format to standard format
+		python3 planners/vg2g.py -r test/gsen6331/full.tif -v test/gsen6331/full_evg-a.graph -o test/gsen6331/full_evg-a_fp3.pickle --sy 42.362209 --sx -70.956174  --dy 42.35282  --dx -70.97952
+		# Solve
+		python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_evg-a_fp3.pickle -u None --sy 42.362209 --sx -70.956174  --dy 42.35282  --dx -70.97952  --solver a* --speed 0.5 -m test/gsen6331/FP3-CB.png
+```
+
+
+![alt text](FP3-CB.png "FP3-CB path plot")
+
+
+
+- Experiment: FP3-CC
+	- Setup:
+		- Mission: FP3
+		- Solver: Dijkstra (current-aware)
+		- Graph: uniform
+		- Currents? enabled
+	- Results:
+		- Planning time:
+		- Distance:
+		- Duration:
+		- Cost (currents):
+
+
+```
+		# Convert visibility graph format to standard format
+		python3 planners/vg2g.py -r test/gsen6331/full.tif -v test/gsen6331/full_evg-a.graph -o test/gsen6331/full_evg-a_fp3.pickle --sy 42.362209 --sx -70.956174  --dy 42.35282  --dx -70.97952
+		# Solve
+		python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_evg-a_fp3.pickle  --sy 42.362209 --sx -70.956174  --dy 42.35282  --dx -70.97952  --solver dijkstra --speed 0.5 -m test/gsen6331/FP3-CC.png --currents_mag test/gsen6331/waterMag.tif --currents_dir test/gsen6331/waterDir.tif
+```
+
+![alt text](FP3-CC.png "FP3-CC path plot")
+
+
+
+- Experiment: FP3-CD
+	- Setup:
+		- Mission: FP3
+		- Solver: Astar (current-aware)
+		- Graph: uniform
+		- Currents? enabled
+	- Results:
+		- Planning time:
+		- Distance:
+		- Duration:
+		- Cost (currents):
+
+```
+		# Convert visibility graph format to standard format
+		python3 planners/vg2g.py -r test/gsen6331/full.tif -v test/gsen6331/full_evg-a.graph -o test/gsen6331/full_evg-a_fp3.pickle --sy 42.362209 --sx -70.956174  --dy 42.35282  --dx -70.97952
+		# Solve
+		python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_evg-a_fp3.pickle  --sy 42.362209 --sx -70.956174  --dy 42.35282  --dx -70.97952  --solver a* --speed 0.5 -m test/gsen6331/FP2-CD.png --currents_mag test/gsen6331/waterMag.tif --currents_dir test/gsen6331/waterDir.tif
+```
+
+![alt text](FP3-CD.png "FP3-CD path plot")
+
+
+
+- Experiment: MP1-CA
+	- Setup:
+		- Mission: MP1
+		- Solver: Dijkstra
+		- Graph: uniform
+		- Currents? disabled
+	- Results:
+		- Planning time:
+		- Distance:
+		- Duration:
+		- Cost (currents): N/A
+
+```
+		# Convert visibility graph format to standard format
+		python3 planners/vg2g.py -r test/gsen6331/mini.tif -v test/gsen6331/mini_evg-a.graph -o test/gsen6331/mini_evg-a_mp1.pickle --sy 42.29 --sx -70.92  --dy 42.30  --dx -70.96
+		# Solve
+		python3 planners/gplanner_solve.py -r test/gsen6331/mini.tif -g test/gsen6331/mini_evg-a_mp1.pickle -u None --sy 42.29 --sx -70.92  --dy 42.30  --dx -70.96  --solver dijkstra --speed 0.5 -m test/gsen6331/MP1-CA.png
+```
+
+![alt text](MP1-CA.png "MP1-CA path plot")
+
+
+
+- Experiment: MP1-CB
+	- Setup:
+		- Mission: MP1
+		- Solver: Astar
+		- Graph: uniform
+		- Currents? disabled
+	- Results:
+		- Planning time:
+		- Distance:
+		- Duration:
+		- Cost (currents): N/A
+
+```
+		# Convert visibility graph format to standard format
+		python3 planners/vg2g.py -r test/gsen6331/mini.tif -v test/gsen6331/mini_evg-a.graph -o test/gsen6331/mini_evg-a_mp1.pickle --sy 42.29 --sx -70.92  --dy 42.30  --dx -70.96
+		# Solve
+		python3 planners/gplanner_solve.py -r test/gsen6331/mini.tif -g test/gsen6331/mini_evg-a_mp1.pickle -u None --sy 42.29 --sx -70.92  --dy 42.30  --dx -70.96  --solver a* --speed 0.5 -m test/gsen6331/MP1-CB.png
+```
+
+
+![alt text](MP1-CB.png "MP1-CB path plot")
+
+
+
+- Experiment: MP1-CC
+	- Setup:
+		- Mission: MP1
+		- Solver: Dijkstra (current-aware)
+		- Graph: uniform
+		- Currents? enabled
+	- Results:
+		- Planning time:
+		- Distance:
+		- Duration:
+		- Cost (currents):
+```
+		# Convert visibility graph format to standard format
+		python3 planners/vg2g.py -r test/gsen6331/mini.tif -v test/gsen6331/mini_evg-a.graph -o test/gsen6331/mini_evg-a_mp1.pickle --sy 42.29 --sx -70.92  --dy 42.30  --dx -70.96
+		# Solve
+		python3 planners/gplanner_solve.py -r test/gsen6331/mini.tif -g test/gsen6331/mini_evg-a_mp1.pickle  --sy 42.29 --sx -70.92  --dy 42.30  --dx -70.96  --solver dijkstra --speed 0.5 -m test/gsen6331/MP1-CC.png --currents_mag test/gsen6331/waterMag.tif --currents_dir test/gsen6331/waterDir.tif
+```
+
+![alt text](MP1-CC.png "MP1-CC path plot")
+
+
+
+- Experiment: MP1-CD
+	- Setup:
+		- Mission: MP1
+		- Solver: Astar (current-aware)
+		- Graph: uniform
+		- Currents? enabled
+	- Results:
+		- Planning time:
+		- Distance:
+		- Duration:
+		- Cost (currents):
+
+```
+		# Convert visibility graph format to standard format
+		python3 planners/vg2g.py -r test/gsen6331/mini.tif -v test/gsen6331/mini_evg-a.graph -o test/gsen6331/mini_evg-a_mp1.pickle --sy 42.29 --sx -70.92  --dy 42.30  --dx -70.96
+		# Solve
+		python3 planners/gplanner_solve.py -r test/gsen6331/mini.tif -g test/gsen6331/mini_evg-a_mp1.pickle  --sy 42.29 --sx -70.92  --dy 42.30  --dx -70.96  --solver a* --speed 0.5 -m test/gsen6331/MP1-CD.png --currents_mag test/gsen6331/waterMag.tif --currents_dir test/gsen6331/waterDir.tif
+```
+
+![alt text](MP1-CD.png "MP1-CD path plot")
+
+
+
+
+
+
+
+
+- Experiment: FP1-DA
+	- Setup:
+		- Mission: FP1
+		- Solver: Dijkstra
+		- Graph: uniform
+		- Currents? disabled
+	- Results:
+		- Planning time:
+		- Distance:
+		- Duration:
+		- Cost (currents): N/A
+
+```
+		# Convert visibility graph format to standard format
+		python3 planners/vg2g.py -r test/gsen6331/full.tif -v test/gsen6331/full_evg-b.graph -o test/gsen6331/full_evg-b_fp1.pickle --sy 42.32343  --sx -70.99428  --dy 42.33600  --dx -70.88737
+		# Solve
+		python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_evg-b_fp1.pickle -u None --sy 42.32343  --sx -70.99428  --dy 42.33600  --dx -70.88737  --solver dijkstra --speed 0.5 -m test/gsen6331/FP1-DA.png
+```
+
+![alt text](FP1-DA.png "FP1-DA path plot")
+
+
+
+- Experiment: FP1-DB
+	- Setup:
+		- Mission: FP1
+		- Solver: Astar
+		- Graph: uniform
+		- Currents? disabled
+	- Results:
+		- Planning time:
+		- Distance:
+		- Duration:
+		- Cost (currents): N/A
+
+```
+		# Convert visibility graph format to standard format
+		python3 planners/vg2g.py -r test/gsen6331/full.tif -v test/gsen6331/full_evg-b.graph -o test/gsen6331/full_evg-b_fp1.pickle --sy 42.32343  --sx -70.99428  --dy 42.33600  --dx -70.88737
+		# Solve
+		python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_evg-b_fp1.pickle -u None --sy 42.32343  --sx -70.99428  --dy 42.33600  --dx -70.88737  --solver a* --speed 0.5 -m test/gsen6331/FP1-DB.png
+```
+
+
+![alt text](FP1-DB.png "FP1-DB path plot")
+
+
+
+- Experiment: FP1-DC
+	- Setup:
+		- Mission: FP1
+		- Solver: Dijkstra (current-aware)
+		- Graph: uniform
+		- Currents? enabled
+	- Results:
+		- Planning time:
+		- Distance:
+		- Duration:
+		- Cost (currents):
+
+```
+		# Convert visibility graph format to standard format
+		python3 planners/vg2g.py -r test/gsen6331/full.tif -v test/gsen6331/full_evg-b.graph -o test/gsen6331/full_evg-b_fp1.pickle --sy 42.32343  --sx -70.99428  --dy 42.33600  --dx -70.88737
+		# Solve
+		python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_evg-b_fp1.pickle -u None --sy 42.32343  --sx -70.99428  --dy 42.33600  --dx -70.88737  --solver dijkstra --speed 0.5 -m test/gsen6331/FP1-DC.png --currents_mag test/gsen6331/waterMag.tif --currents_dir test/gsen6331/waterDir.tif
+```
+
+![alt text](FP1-DC.png "FP1-DC path plot")
+
+
+
+- Experiment: FP1-DD
+	- Setup:
+		- Mission: FP1
+		- Solver: Astar (current-aware)
+		- Graph: uniform
+		- Currents? enabled
+	- Results:
+		- Planning time:
+		- Distance:
+		- Duration:
+		- Cost (currents):
+
+```
+		# Convert visibility graph format to standard format
+		python3 planners/vg2g.py -r test/gsen6331/full.tif -v test/gsen6331/full_evg-b.graph -o test/gsen6331/full_evg-b_fp1.pickle --sy 42.32343  --sx -70.99428  --dy 42.33600  --dx -70.88737
+		# Solve
+		python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_evg-b_fp1.pickle -u None --sy 42.32343  --sx -70.99428  --dy 42.33600  --dx -70.88737  --solver a* --speed 0.5 -m test/gsen6331/FP1-DD.png --currents_mag test/gsen6331/waterMag.tif --currents_dir test/gsen6331/waterDir.tif
+```
+
+![alt text](FP1-DD.png "FP1-DD path plot")
+
+
+
+- Experiment: FP2-DA
+	- Setup:
+		- Mission: FP2
+		- Solver: Dijkstra
+		- Graph: uniform
+		- Currents? disabled
+	- Results:
+		- Planning time:
+		- Distance:
+		- Duration:
+		- Cost (currents): N/A
+
+```
+		# Convert visibility graph format to standard format
+		python3 planners/vg2g.py -r test/gsen6331/full.tif -v test/gsen6331/full_evg-b.graph -o test/gsen6331/full_evg-b_fp2.pickle --sy 42.33283 --sx -70.97322  --dy 42.27183  --dx -70.903406
+		# Solve
+		python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_evg-b_fp2.pickle -u None --sy 42.33283  --sx -70.97322  --dy 42.27183  --dx -70.903406  --solver dijkstra --speed 0.5 -m test/gsen6331/FP2-DA.png
+```
+
+
+
+
+![alt text](FP2-DA.png "FP2-DA path plot")
+
+
+
+- Experiment: FP2-DB
+	- Setup:
+		- Mission: FP2
+		- Solver: Astar
+		- Graph: uniform
+		- Currents? disabled
+	- Results:
+		- Planning time:
+		- Distance:
+		- Duration:
+		- Cost (currents): N/A
+
+```
+		# Convert visibility graph format to standard format
+		python3 planners/vg2g.py -r test/gsen6331/full.tif -v test/gsen6331/full_evg-b.graph -o test/gsen6331/full_evg-b_fp2.pickle --sy 42.33283 --sx -70.97322  --dy 42.27183  --dx -70.903406
+		# Solve
+		python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_evg-b_fp2.pickle -u None --sy 42.33283  --sx -70.97322  --dy 42.27183  --dx -70.903406  --solver a* --speed 0.5 -m test/gsen6331/FP2-DB.png
+```
+
+
+![alt text](FP2-DB.png "FP2-DB path plot")
+
+
+
+- Experiment: FP2-DC
+	- Setup:
+		- Mission: FP2
+		- Solver: Dijkstra (current-aware)
+		- Graph: uniform
+		- Currents? enabled
+	- Results:
+		- Planning time:
+		- Distance:
+		- Duration:
+		- Cost (currents):
+
+```
+		# Convert visibility graph format to standard format
+		python3 planners/vg2g.py -r test/gsen6331/full.tif -v test/gsen6331/full_evg-b.graph -o test/gsen6331/full_evg-b_fp2.pickle --sy 42.33283 --sx -70.97322  --dy 42.27183  --dx -70.903406
+		# Solve
+		python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_evg-b_fp2.pickle -u None --sy 42.33283  --sx -70.97322  --dy 42.27183  --dx -70.903406  --solver dijkstra --speed 0.5 -m test/gsen6331/FP2-DC.png --currents_mag test/gsen6331/waterMag.tif --currents_dir test/gsen6331/waterDir.tif
+```
+
+
+![alt text](FP2-DC.png "FP2-DC path plot")
+
+
+
+- Experiment: FP2-DD
+	- Setup:
+		- Mission: FP2
+		- Solver: Astar (current-aware)
+		- Graph: uniform
+		- Currents? enabled
+	- Results:
+		- Planning time:
+		- Distance:
+		- Duration:
+		- Cost (currents):
+
+```
+		# Convert visibility graph format to standard format
+		python3 planners/vg2g.py -r test/gsen6331/full.tif -v test/gsen6331/full_evg-b.graph -o test/gsen6331/full_evg-b_fp2.pickle --sy 42.33283 --sx -70.97322  --dy 42.27183  --dx -70.903406
+		# Solve
+		python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_evg-b_fp2.pickle -u None --sy 42.33283  --sx -70.97322  --dy 42.27183  --dx -70.903406  --solver a* --speed 0.5 -m test/gsen6331/FP2-DD.png --currents_mag test/gsen6331/waterMag.tif --currents_dir test/gsen6331/waterDir.tif
+```
+
+![alt text](FP2-DD.png "FP2-DD path plot")
+
+
+
+- Experiment: FP3-DA
+	- Setup:
+		- Mission: FP3
+		- Solver: Dijkstra
+		- Graph: uniform
+		- Currents? disabled
+	- Results:
+		- Planning time:
+		- Distance:
+		- Duration:
+		- Cost (currents): N/A
+
+
+```
+		# Convert visibility graph format to standard format
+		python3 planners/vg2g.py -r test/gsen6331/full.tif -v test/gsen6331/full_evg-b.graph -o test/gsen6331/full_evg-b_fp3.pickle --sy 42.362209 --sx -70.956174  --dy 42.35282  --dx -70.97952
+		# Solve
+		python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_evg-b_fp3.pickle -u None --sy 42.362209 --sx -70.956174  --dy 42.35282  --dx -70.97952  --solver dijkstra --speed 0.5 -m test/gsen6331/FP3-DA.png
+```
+
+
+![alt text](FP3-DA.png "FP3-DA path plot")
+
+
+
+- Experiment: FP3-DB
+	- Setup:
+		- Mission: FP3
+		- Solver: Astar
+		- Graph: uniform
+		- Currents? disabled
+	- Results:
+		- Planning time:
+		- Distance:
+		- Duration:
+		- Cost (currents): N/A
+
+```
+		# Convert visibility graph format to standard format
+		python3 planners/vg2g.py -r test/gsen6331/full.tif -v test/gsen6331/full_evg-b.graph -o test/gsen6331/full_evg-b_fp3.pickle --sy 42.362209 --sx -70.956174  --dy 42.35282  --dx -70.97952
+		# Solve
+		python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_evg-b_fp3.pickle -u None --sy 42.362209 --sx -70.956174  --dy 42.35282  --dx -70.97952  --solver a* --speed 0.5 -m test/gsen6331/FP3-DB.png
+```
+
+
+![alt text](FP3-DB.png "FP3-DB path plot")
+
+
+
+- Experiment: FP3-DC
+	- Setup:
+		- Mission: FP3
+		- Solver: Dijkstra (current-aware)
+		- Graph: uniform
+		- Currents? enabled
+	- Results:
+		- Planning time:
+		- Distance:
+		- Duration:
+		- Cost (currents):
+
+
+```
+		# Convert visibility graph format to standard format
+		python3 planners/vg2g.py -r test/gsen6331/full.tif -v test/gsen6331/full_evg-b.graph -o test/gsen6331/full_evg-b_fp3.pickle --sy 42.362209 --sx -70.956174  --dy 42.35282  --dx -70.97952
+		# Solve
+		python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_evg-b_fp3.pickle  --sy 42.362209 --sx -70.956174  --dy 42.35282  --dx -70.97952  --solver dijkstra --speed 0.5 -m test/gsen6331/FP3-DC.png --currents_mag test/gsen6331/waterMag.tif --currents_dir test/gsen6331/waterDir.tif
+```
+
+![alt text](FP3-DC.png "FP3-DC path plot")
+
+
+
+- Experiment: FP3-DD
+	- Setup:
+		- Mission: FP3
+		- Solver: Astar (current-aware)
+		- Graph: uniform
+		- Currents? enabled
+	- Results:
+		- Planning time:
+		- Distance:
+		- Duration:
+		- Cost (currents):
+
+```
+		# Convert visibility graph format to standard format
+		python3 planners/vg2g.py -r test/gsen6331/full.tif -v test/gsen6331/full_evg-b.graph -o test/gsen6331/full_evg-b_fp3.pickle --sy 42.362209 --sx -70.956174  --dy 42.35282  --dx -70.97952
+		# Solve
+		python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_evg-b_fp3.pickle  --sy 42.362209 --sx -70.956174  --dy 42.35282  --dx -70.97952  --solver a* --speed 0.5 -m test/gsen6331/FP2-DD.png --currents_mag test/gsen6331/waterMag.tif --currents_dir test/gsen6331/waterDir.tif
+```
+
+![alt text](FP3-DD.png "FP3-DD path plot")
+
+
+
+- Experiment: MP1-DA
+	- Setup:
+		- Mission: MP1
+		- Solver: Dijkstra
+		- Graph: uniform
+		- Currents? disabled
+	- Results:
+		- Planning time:
+		- Distance:
+		- Duration:
+		- Cost (currents): N/A
+
+```
+		# Convert visibility graph format to standard format
+		python3 planners/vg2g.py -r test/gsen6331/mini.tif -v test/gsen6331/mini_evg-b.graph -o test/gsen6331/mini_evg-b_mp1.pickle --sy 42.29 --sx -70.92  --dy 42.30  --dx -70.96
+		# Solve
+		python3 planners/gplanner_solve.py -r test/gsen6331/mini.tif -g test/gsen6331/mini_evg-b_mp1.pickle -u None --sy 42.29 --sx -70.92  --dy 42.30  --dx -70.96  --solver dijkstra --speed 0.5 -m test/gsen6331/MP1-DA.png
+```
+
+![alt text](MP1-DA.png "MP1-DA path plot")
+
+
+
+- Experiment: MP1-DB
+	- Setup:
+		- Mission: MP1
+		- Solver: Astar
+		- Graph: uniform
+		- Currents? disabled
+	- Results:
+		- Planning time:
+		- Distance:
+		- Duration:
+		- Cost (currents): N/A
+
+```
+		# Convert visibility graph format to standard format
+		python3 planners/vg2g.py -r test/gsen6331/mini.tif -v test/gsen6331/mini_evg-b.graph -o test/gsen6331/mini_evg-b_mp1.pickle --sy 42.29 --sx -70.92  --dy 42.30  --dx -70.96
+		# Solve
+		python3 planners/gplanner_solve.py -r test/gsen6331/mini.tif -g test/gsen6331/mini_evg-b_mp1.pickle -u None --sy 42.29 --sx -70.92  --dy 42.30  --dx -70.96  --solver a* --speed 0.5 -m test/gsen6331/MP1-DB.png
+```
+
+
+![alt text](MP1-DB.png "MP1-DB path plot")
+
+
+
+- Experiment: MP1-DC
+	- Setup:
+		- Mission: MP1
+		- Solver: Dijkstra (current-aware)
+		- Graph: uniform
+		- Currents? enabled
+	- Results:
+		- Planning time:
+		- Distance:
+		- Duration:
+		- Cost (currents):
+```
+		# Convert visibility graph format to standard format
+		python3 planners/vg2g.py -r test/gsen6331/mini.tif -v test/gsen6331/mini_evg-b.graph -o test/gsen6331/mini_evg-b_mp1.pickle --sy 42.29 --sx -70.92  --dy 42.30  --dx -70.96
+		# Solve
+		python3 planners/gplanner_solve.py -r test/gsen6331/mini.tif -g test/gsen6331/mini_evg-b_mp1.pickle  --sy 42.29 --sx -70.92  --dy 42.30  --dx -70.96  --solver dijkstra --speed 0.5 -m test/gsen6331/MP1-DC.png --currents_mag test/gsen6331/waterMag.tif --currents_dir test/gsen6331/waterDir.tif
+```
+
+![alt text](MP1-DC.png "MP1-DC path plot")
+
+
+
+- Experiment: MP1-DD
+	- Setup:
+		- Mission: MP1
+		- Solver: Astar (current-aware)
+		- Graph: uniform
+		- Currents? enabled
+	- Results:
+		- Planning time:
+		- Distance:
+		- Duration:
+		- Cost (currents):
+
+```
+		# Convert visibility graph format to standard format
+		python3 planners/vg2g.py -r test/gsen6331/mini.tif -v test/gsen6331/mini_evg-b.graph -o test/gsen6331/mini_evg-b_mp1.pickle --sy 42.29 --sx -70.92  --dy 42.30  --dx -70.96
+		# Solve
+		python3 planners/gplanner_solve.py -r test/gsen6331/mini.tif -g test/gsen6331/mini_evg-b_mp1.pickle  --sy 42.29 --sx -70.92  --dy 42.30  --dx -70.96  --solver a* --speed 0.5 -m test/gsen6331/MP1-DD.png --currents_mag test/gsen6331/waterMag.tif --currents_dir test/gsen6331/waterDir.tif
+```
+
+![alt text](MP1-DD.png "MP1-DD path plot")
+
+
+
+
+
+
+
+
+
+
 
 
 
