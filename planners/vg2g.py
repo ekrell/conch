@@ -3,13 +3,10 @@
 import pyvisgraph as vg
 import fiona
 import rasterio
-from rasterio.features import shapes
 import numpy as np
-from shapely.geometry import shape
 import matplotlib.pyplot as plt
 import geopandas as gp
 from optparse import OptionParser
-import shapefile
 import dill as pickle
 from osgeo import gdal
 from pyvisgraph.visible_vertices import visible_vertices, point_in_polygon
@@ -24,39 +21,47 @@ import gridUtils
 ###########
 rangeWidth = 100
 
-rasterFileIn = "/home/ekrell/Downloads/ADVGEO_DL/sample_region_mini.tif"
-graphFileIn = "/home/ekrell/Downloads/ADVGEO_DL/sample_region_mini_evg.graph"
-shapeFileIn = "/home/ekrell/Downloads/ADVGEO_DL/sample_region_mini.shp"
-graphFileOut = "/home/ekrell/Downloads/ADVGEO_DL/sample_region_mini_vg.pickle"
+parser = OptionParser()
+parser.add_option("-r", "--region",
+        help = "Path to raster containing binary occupancy region (1 -> obstacle, 0 -> free)",
+        default = "/home/ekrell/Downloads/ADVGEO_DL/sample_region_mini.tif")
+parser.add_option("-v", "--visgraph",
+        help = "Path to visibility graph",
+        default = "/home/ekrell/Downloads/ADVGEO_DL/sample_region_mini_evg.graph")
+parser.add_option("-o", "--outgraph",
+        help = "Path to output pickle graph.",
+        default = "/home/ekrell/Downloads/ADVGEO_DL/sample_region_mini_vg.pickle")
+parser.add_option("--sx",
+        help = "Start longitude.",
+        default = -70.92)
+parser.add_option("--sy",
+        help = "Start latitude.",
+        default = 42.29)
+parser.add_option("--dx",
+        help = "Destination longitude.",
+        default = -70.96)
+parser.add_option("--dy",
+        help = "Destination latitude.",
+        default = 42.30)
 
-startPoint = (-70.92, 42.29) 
-endPoint = (-70.96, 42.30)
+(options, args) = parser.parse_args()
 
-# Load shapefile
-input_shapefile = shapefile.Reader(shapeFileIn)
-shapes = input_shapefile.shapes()
+rasterFileIn = options.region
+graphFileIn = options.visgraph
+graphFileOut = options.outgraph
+startPoint = (float(options.sy), float(options.sx))
+endPoint = (float(options.dy), float(options.dx))
+
+print(options)
+
+print(rasterFileIn, graphFileIn)
+print(startPoint)
 
 # Load visibility graph
 print("Begin loading visibility graph")
 graph = vg.VisGraph()
 graph.load(graphFileIn)
 print("Done loading visibility graph")
-
-# Find extent
-#minx = shapes[0].points[0][0]
-#maxx = minx
-#miny = shapes[0].points[0][1]
-#maxy = miny
-#for shape in shapes:
-#    for point in shape.points:
-#        if point[0] < minx:
-#            minx = point[0]
-#        elif point[0] > maxx:
-#            maxx = point[0]
-#        if point[1] < miny:
-#            miny = point[1]
-#        elif point[1] > maxy:
-#            maxy = point[1]
 
 # Scale based on raster dimensions
 regionData = gdal.Open(rasterFileIn)
@@ -70,10 +75,13 @@ miny = regionExtent["miny"]
 maxy = regionExtent["maxy"]
 
 # Add the start and stop point to grid
-origin = vg.Point(round((round(startPoint[0], 10) - minx) / (maxx - minx) * rangeWidth, 6), 
-        round((round(startPoint[1], 10) - miny) / (maxy - miny) * rangeWidth, 6))
-destination = vg.Point(round((round(endPoint[0], 10) - minx) / (maxx - minx) * rangeWidth, 6),
-        round((round(endPoint[1], 10) - miny) / (maxy - miny) * rangeWidth, 6))
+origin = vg.Point(round((round(startPoint[1], 10) - minx) / (maxx - minx) * rangeWidth, 6), 
+        round((round(startPoint[0], 10) - miny) / (maxy - miny) * rangeWidth, 6))
+destination = vg.Point(round((round(endPoint[1], 10) - minx) / (maxx - minx) * rangeWidth, 6),
+        round((round(endPoint[0], 10) - miny) / (maxy - miny) * rangeWidth, 6))
+
+print("start:", startPoint, "scaled:", origin)
+print("destination", endPoint, "scaled:", destination)
 
 origin_exists = origin in graph.visgraph
 dest_exists = destination in graph.visgraph
@@ -81,18 +89,19 @@ orgn = None if origin_exists else origin
 dest = None if dest_exists else destination
 if not origin_exists: 
     for v in visible_vertices(origin, graph.graph, destination=dest):
-        graph.graph.add_edge(Edge(origin, v))
+        graph.visgraph.add_edge(Edge(origin, v))
 if not dest_exists:
     for v in visible_vertices(destination, graph.graph, origin=orgn):
-        graph.graph.add_edge(Edge(destination, v))
+        graph.visgraph.add_edge(Edge(destination, v))
 
 # Convert to simple dictionary graph
 dgraph = {}
-for v in graph.graph.get_points():
+
+for v in graph.visgraph.get_points():
     v_latlon = ( (v.y  / rangeWidth) * (maxy - miny) + miny, (v.x  / rangeWidth) * (maxx - minx) + minx )
     v_rowcol = gridUtils.world2grid(v_latlon[0], v_latlon[1], regionTransform, regionExtent["rows"])
     v_edges = []
-    for edge in graph.graph[v]:
+    for edge in graph.visgraph[v]:
         w = edge.get_adjacent(v)
         w_latlon = ( (w.y  / rangeWidth) * (maxy - miny) + miny, (w.x  / rangeWidth) * (maxx - minx) + minx )
         w_rowcol = gridUtils.world2grid(w_latlon[0], w_latlon[1], regionTransform, regionExtent["rows"])

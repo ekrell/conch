@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from optparse import OptionParser
 from osgeo import gdal
 import dill as pickle
+import time
 # Conch modules
 import rasterSetInterface as rsi
 
@@ -45,6 +46,7 @@ grid = regionData.GetRasterBand(1).ReadAsArray()
 
 # Convert to graph
 print("Begin building uniform graph")
+t0 = time.time()
 graph = {}
 for row in range(regionExtent["rows"]):
     for col in range(regionExtent["cols"]):
@@ -68,9 +70,10 @@ for row in range(regionExtent["rows"]):
                 edges_.append((row - 1, col + 1))
             if (row + 1 < regionExtent["rows"]) and (col + 1 < regionExtent["cols"]) and \
                 (grid[row + 1][col + 1] == freecell):
-                    edges_.append((row + 1, col + 1))
+                    edges_.append((row + 1, col + 2))
             graph[(row, col)] = edges_
-print("Done building uniform graph")
+t1 = time.time()
+print("Done building uniform graph, {} seconds".format(t1 - t0))
 
 # Plot graph
 print("Begin plotting uniform graph: {} nodes".format(len(graph)))
@@ -85,4 +88,3 @@ print("Saved uniform graph map to file: {}".format(mapOutFile))
 # Save graph
 pickle.dump(graph, open(graphOutFile, "wb"))
 print("Saved uniform graph to file: {}".format(graphOutFile))
-

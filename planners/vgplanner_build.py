@@ -11,6 +11,7 @@ import geopandas as gp
 from optparse import OptionParser
 import shapefile
 import random
+import time
 from osgeo import gdal
 # Conch modules
 import rasterSetInterface as rsi
@@ -86,8 +87,8 @@ for geom in geoms:
     # Convert to shapely
     shape_ = shape(geom['geometry'])
     # Simplify shape boundary (since raster artificially blocky)
-    #shape_ = shape_.buffer(0.008, join_style=1).buffer(-0.008, join_style=1)
-    shape_ = shape_.simplify(0.00025, preserve_topology=False)
+    #shape_ = shape_.buffer(0.0008, join_style=1).buffer(-0.0006, join_style=1)
+    shape_ = shape_.simplify(0.0005, preserve_topology=False)
     # If smoothing too aggressive, may loose obstacles! 
     if shape_.is_empty: 
         print ("  Warning! shape lost in simplifying.")
@@ -129,22 +130,6 @@ if build == False:
 input_shapefile = shapefile.Reader(shapeOutFile)
 shapes = input_shapefile.shapes()
 
-# Find extent
-#minx = shapes[0].points[0][0]
-#maxx = minx
-#miny = shapes[0].points[0][1]
-#maxy = miny
-#for shape in shapes:
-#    for point in shape.points:
-#        if point[0] < minx:
-#            minx = point[0]
-#        elif point[0] > maxx:
-#            maxx = point[0]
-#        if point[1] < miny:
-#            miny = point[1]
-#        elif point[1] > maxy:
-#            maxy = point[1]
-
 # Load raster
 regionData = gdal.Open(regionRasterFile)
 regionExtent = rsi.getGridExtent(regionData)
@@ -167,8 +152,10 @@ for shape in shapes:
 # Start building the visibility graph 
 graph = vg.VisGraph()
 print('Begin building visibility graph')
+t0 = time.time()
 graph.build(polygons, workers = numWorkers)
-print('Done building visibility graph')
+t1 = time.time()
+print('Done building visibility graph, {} seconds'.format(t1 - t0))
 
 # Save graph
 graph.save(graphOutFile)
@@ -177,9 +164,9 @@ print("Saved visibility graph to file: {}".format(graphOutFile))
 # Plot visibility graph
 edges = graph.visgraph.get_edges()
 # Print only P proportion, since very time consuming to plot 
-plotProp = 0.05
+plotProp = 0.1
 numSamples = int(len(edges) * plotProp)
-edges = random.sample(edges, numSamples)
+#edges = random.sample(edges, numSamples)
 
 print("Begin plotting visibility graph: {} edges".format(len(edges)))
 for e in list(edges):

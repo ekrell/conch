@@ -31,6 +31,18 @@ parser.add_option("-e", "--evisgraph",
 parser.add_option("-m", "--map",
         help = "Path to save solution path map",
         default = "/home/ekrell/Downloads/ADVGEO_DL/sample_region_graph_mini_evg.png")
+parser.add_option("--ydiff", 
+        help = "Skip distance between initial rows, in percent of raster height.",
+        default = 5)
+parser.add_option("--xdiff", 
+        help = "Skip distance between initial columns, in percent of raster height.",
+        default = 5)
+parser.add_option("--radius", 
+        help = "Radius for circle-check.",
+        default = 16)
+parser.add_option("--threshold", 
+        help = "Threshold for circle-check.",
+        default = 2)
 
 (options, args) = parser.parse_args()
 
@@ -38,10 +50,10 @@ rasterFileIn = options.region
 graphFileIn = options.visgraph
 graphFileOut = options.evisgraph
 mapFileOut = options.map
-
-ydiff = 10
-xdiff = 10
-rad = 15
+ydiff = float(options.ydiff)
+xdiff = float(options.xdiff)
+rad = float(options.radius)
+threshold = int(options.threshold)
 
 # Load raster
 regionData = gdal.Open(rasterFileIn)
@@ -56,18 +68,17 @@ print("Done loading visibility graph")
 
 # Generate uniform test points
 print("Begin extending visibility graph")
-print("  (Radius = {:2}, Y offset = {:2}%, X offset = {:2}%)".format(rad, ydiff, xdiff))
+print("  (Radius = {:2}, Threshold = {}, Y offset = {:2}%, X offset = {:2}%)".format(rad, threshold, ydiff, xdiff))
 xy = np.mgrid[0:rangeWidth:xdiff, 0:rangeWidth:ydiff].reshape(2, -1).T
 npoints = len(xy)
 
-tpoints = graph.graph.get_points()
+tpoints = graph.visgraph.get_points()
 gx = [p.x for p in tpoints]
 gy = [p.y for p in tpoints]
 tpoints = [(t.x, t.y) for t in tpoints]
 
 # Generate final points to add to extended visibility graph
 centers = [(p[0], p[1]) for p in xy]
-threshold = 2
 generated = []
 
 radsq = rad * rad
@@ -91,9 +102,14 @@ for c in centers:
 # Switch order (x, y) --> (y, x) to match visibility graph
 evg = [vg.Point(g[1], g[0]) for g in generated]
 # Add points to visgraph
+added = []
 for g in evg:
-    for v in visible_vertices(g, graph.graph):
-        graph.graph.add_edge(Edge(g, v))
+    try:
+        for v in visible_vertices(g, graph.graph):
+            if point_in_polygon(g, graph.graph) < 0 and point_in_polygon(v, graph.graph) < 0:
+                graph.visgraph.add_edge(Edge(g, v))
+    except:
+        continue
 print("End extending visibility graph")
 
 # Save evg

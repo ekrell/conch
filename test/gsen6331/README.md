@@ -128,7 +128,7 @@ The uniform graph, visibility graph, and extended visibility graph are made only
 		- Graph: full_evg-b.graph
 		- Plot: full_evg-b.png
 
-```python3 planners/vg2evg.py -r test/gsen6331/full.tif -v test/gsen6331/full_vg.graph -e test/gsen6331/full_evg-b.graph -m test/gsen6332/full_evg-b.png --xdiff 5 --ydiff 5 --radius 15 --threshold 2
+```python3 planners/vg2evg.py -r test/gsen6331/full.tif -v test/gsen6331/full_vg.graph -e test/gsen6331/full_evg-b.graph -m test/gsen6331/full_evg-b.png --xdiff 5 --ydiff 5 --radius 15 --threshold 2
 ```
 
 ![alt text](full_evg-b.png "full evg b plot")
@@ -204,7 +204,7 @@ The uniform graph, visibility graph, and extended visibility graph are made only
 		- Duration:
 		- Cost (currents): N/A
 
-```python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_uni.pickle -u None --sy 42.32343  --sx -70.99428  --dy 42.33600  --dx -70.88737  --solver dijkstra --speed 0.5 -m test/gsen6331/FP1-AA.png
+```python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_uni.pickle -u None --sy 42.32343  --sx -70.99428  --dy 42.33600  --dx -70.88737  --solver dijkstra --speed 0.5 -m test/gsen6331/FP1-AA.png -p test/gsen6331/FP1-AA.txt > test/gsen6331/FP1-AA.out
 ```
 
 ![alt text](FP1-AA.png "FP1-AA path plot")
@@ -223,7 +223,7 @@ The uniform graph, visibility graph, and extended visibility graph are made only
 		- Duration:
 		- Cost (currents): N/A
 
-```python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_uni.pickle -u None --sy 42.32343  --sx -70.99428  --dy 42.33600  --dx -70.88737  --solver a* --speed 0.5 -m test/gsen6331/FP1-AB.png
+```python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_uni.pickle -u None --sy 42.32343  --sx -70.99428  --dy 42.33600  --dx -70.88737  --solver a* --speed 0.5 -m test/gsen6331/FP1-AB.png test/gsen6331/FP1-AB.txt > test/gsen6331/FP1-AB.out
 ```
 
 ![alt text](FP1-AB.png "FP1-AB path plot")
@@ -261,7 +261,7 @@ The uniform graph, visibility graph, and extended visibility graph are made only
 		- Duration:
 		- Cost (currents):
 
-```python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_uni.pickle -u None --sy 42.32343  --sx -70.99428  --dy 42.33600  --dx -70.88737  --solver a* --speed 0.5 -m test/gsen6331/FP1-AD.png --currents_mag test/gsen6331/waterMag.tif --currents_dir test/gsen6331/waterDir.tif
+```python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_uni.pickle -u None --sy 42.32343  --sx -70.99428  --dy 42.33600  --dx -70.88737  --solver a* --speed 0.5 -m test/gsen6331/FP1-AD.png --currents_mag test/gsen6331/waterMag.tif --currents_dir test/gsen6331/waterDir.tif -p test/gsen6331/FP1-AD.txt > test/gsen6331/FP1-AD.out
 ```
 
 ![alt text](FP1-AD.png "FP1-AD path plot")
@@ -512,7 +512,7 @@ The uniform graph, visibility graph, and extended visibility graph are made only
 		# Convert visibility graph format to standard format
 		python3 planners/vg2g.py -r test/gsen6331/full.tif -v test/gsen6331/full_vg.graph -o test/gsen6331/full_vg_fp1.pickle --sy 42.32343  --sx -70.99428  --dy 42.33600  --dx -70.88737
 		# Solve
-		python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_vg_fp1.pickle -u None --sy 42.32343  --sx -70.99428  --dy 42.33600  --dx -70.88737  --solver dijkstra --speed 0.5 -m test/gsen6331/FP1-BA.png
+		python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_vg_fp1.pickle -u None --sy 42.32343  --sx -70.99428  --dy 42.33600  --dx -70.88737  --solver dijkstra --speed 0.5 -m test/gsen6331/FP1-BA.png -p test/gsen6331/FP1-BA.txt > test/gsen6331/FP1-BA.out
 ```
 
 ![alt text](FP1-BA.png "FP1-BA path plot")
@@ -582,7 +582,7 @@ The uniform graph, visibility graph, and extended visibility graph are made only
 		# Convert visibility graph format to standard format
 		python3 planners/vg2g.py -r test/gsen6331/full.tif -v test/gsen6331/full_vg.graph -o test/gsen6331/full_vg_fp1.pickle --sy 42.32343  --sx -70.99428  --dy 42.33600  --dx -70.88737
 		# Solve
-		python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_vg_fp1.pickle -u None --sy 42.32343  --sx -70.99428  --dy 42.33600  --dx -70.88737  --solver a* --speed 0.5 -m test/gsen6331/FP1-BD.png --currents_mag test/gsen6331/waterMag.tif --currents_dir test/gsen6331/waterDir.tif
+		python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_vg_fp1.pickle -u None --sy 42.32343  --sx -70.99428  --dy 42.33600  --dx -70.88737  --solver a* --speed 0.5 -m test/gsen6331/FP1-BD.png --currents_mag test/gsen6331/waterMag.tif --currents_dir test/gsen6331/waterDir.tif -p test/gsen6331/FP1-BD.txt > test/gsen6331/FP1-BD.out
 ```
 
 ![alt text](FP1-BD.png "FP1-BD path plot")
@@ -890,7 +890,7 @@ The uniform graph, visibility graph, and extended visibility graph are made only
 		# Convert visibility graph format to standard format
 		python3 planners/vg2g.py -r test/gsen6331/full.tif -v test/gsen6331/full_evg-a.graph -o test/gsen6331/full_evg-a_fp1.pickle --sy 42.32343  --sx -70.99428  --dy 42.33600  --dx -70.88737
 		# Solve
-		python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_evg-a_fp1.pickle -u None --sy 42.32343  --sx -70.99428  --dy 42.33600  --dx -70.88737  --solver dijkstra --speed 0.5 -m test/gsen6331/FP1-CA.png
+		python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_evg-a_fp1.pickle -u None --sy 42.32343  --sx -70.99428  --dy 42.33600  --dx -70.88737  --solver dijkstra --speed 0.5 -m test/gsen6331/FP1-CA.png -p test/gsen6331/FP1-CA.txt > test/gsen6331/FP1-CA.out
 ```
 
 ![alt text](FP1-CA.png "FP1-CA path plot")
@@ -960,7 +960,7 @@ The uniform graph, visibility graph, and extended visibility graph are made only
 		# Convert visibility graph format to standard format
 		python3 planners/vg2g.py -r test/gsen6331/full.tif -v test/gsen6331/full_evg-a.graph -o test/gsen6331/full_evg-a_fp1.pickle --sy 42.32343  --sx -70.99428  --dy 42.33600  --dx -70.88737
 		# Solve
-		python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_evg-a_fp1.pickle -u None --sy 42.32343  --sx -70.99428  --dy 42.33600  --dx -70.88737  --solver a* --speed 0.5 -m test/gsen6331/FP1-CD.png --currents_mag test/gsen6331/waterMag.tif --currents_dir test/gsen6331/waterDir.tif
+		python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_evg-a_fp1.pickle -u None --sy 42.32343  --sx -70.99428  --dy 42.33600  --dx -70.88737  --solver a* --speed 0.5 -m test/gsen6331/FP1-CD.png --currents_mag test/gsen6331/waterMag.tif --currents_dir test/gsen6331/waterDir.tif -p test/gsen6331/FP1-CD.txt > test/gsen6331/FP1-CD.out
 ```
 
 ![alt text](FP1-CD.png "FP1-CD path plot")
@@ -1343,7 +1343,7 @@ The uniform graph, visibility graph, and extended visibility graph are made only
 		# Convert visibility graph format to standard format
 		python3 planners/vg2g.py -r test/gsen6331/full.tif -v test/gsen6331/full_evg-b.graph -o test/gsen6331/full_evg-b_fp1.pickle --sy 42.32343  --sx -70.99428  --dy 42.33600  --dx -70.88737
 		# Solve
-		python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_evg-b_fp1.pickle -u None --sy 42.32343  --sx -70.99428  --dy 42.33600  --dx -70.88737  --solver a* --speed 0.5 -m test/gsen6331/FP1-DD.png --currents_mag test/gsen6331/waterMag.tif --currents_dir test/gsen6331/waterDir.tif
+		python3 planners/gplanner_solve.py -r test/gsen6331/full.tif -g test/gsen6331/full_evg-b_fp1.pickle -u None --sy 42.32343  --sx -70.99428  --dy 42.33600  --dx -70.88737  --solver a* --speed 0.5 -m test/gsen6331/FP1-DD.png --currents_mag test/gsen6331/waterMag.tif --currents_dir test/gsen6331/waterDir.tif -p test/gsen6331/FP1-DD.txt > test/gsen6331/FP1-DD.out
 ```
 
 ![alt text](FP1-DD.png "FP1-DD path plot")

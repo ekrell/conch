@@ -1,4 +1,4 @@
-#!/usr/bin/python4
+#!/usr/bin/python3
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -11,6 +11,7 @@ from bresenham import bresenham
 import osgeo.gdalnumeric as gdn
 from haversine import haversine
 import pyvisgraph as vg
+import time
 # Conch modules
 import rasterSetInterface as rsi
 import gridUtils
@@ -71,10 +72,11 @@ def calcWork(v, w, currentsGrid_u, currentsGrid_v, targetSpeed_mps, timeIn = 0, 
 
            #xB = currentsGrid_u[0, p[0], p[1]]
            #yB = currentsGrid_v[0, p[0], p[1]]
-            cmag = currentsGrid_u[index, p[0], p[1]] * (rem / interval) + \
-                 currentsGrid_u[index + 1, p[0], p[1]] * (1 - (rem / interval))
-            cdir = currentsGrid_v[index, p[0], p[1]] * (rem / interval) + \
-                 currentsGrid_v[index + 1, p[0], p[1]] * (1 - (rem / interval))
+            
+            cmag = currentsGrid_u[index, p[0] - 1, p[1] - 1] * (rem / interval) + \
+                 currentsGrid_u[index + 1, p[0] - 1, p[1] - 1] * (1 - (rem / interval))
+            cdir = currentsGrid_v[index, p[0] - 1, p[1] - 1] * (rem / interval) + \
+                 currentsGrid_v[index + 1, p[0] - 1, p[1] - 1] * (1 - (rem / interval))
 
             xB = cmag * cos(cdir)
             yB = cmag * sin(cdir)
@@ -89,6 +91,14 @@ def calcWork(v, w, currentsGrid_u, currentsGrid_v, targetSpeed_mps, timeIn = 0, 
                 dirDV = acos(costheta)
 
             work += magaDV * pixeldist
+
+            # Update time
+            timeDelta = pixeldist / targetSpeed_mps
+            (index, rem) = divmod(timeIn, interval)
+            index = floor(index)
+
+
+
     else:
         work = 0
 
@@ -98,13 +108,13 @@ def calcWork(v, w, currentsGrid_u, currentsGrid_v, targetSpeed_mps, timeIn = 0, 
 def astar(graph, origin, destination, regionTransform = None, 
         currentsGrid_u = None, currentsGrid_v = None, currentsTransform = None, currentsExtent = None, 
         targetSpeed_mps = 100, timeOffset = 0):
+
     """
     A* search algorithm, using Euclidean distance heuristic
     Note that this is a modified version of an
     A* implementation by Amit Patel.
     https://www.redblobgames.com/pathfinding/a-star/implementation.html
     """
-
     frontier = priority_dict()
     frontier[origin] = 0
     cameFrom = {}
@@ -128,7 +138,10 @@ def astar(graph, origin, destination, regionTransform = None,
             v_currents = gridUtils.world2grid(v_latlon[0], v_latlon[1], 
                     currentsTransform, currentsExtent["rows"])
 
-        edges = graph[v]
+        try:
+            edges = graph[v]
+        except:
+            continue
         for w in edges:
             w_latlon = gridUtils.grid2world(w[0], w[1], regionTransform, regionExtent["rows"])
             # No currents --> cost = distance
@@ -157,7 +170,8 @@ def astar(graph, origin, destination, regionTransform = None,
                 priority = new_cost + dist
                 frontier[w] = priority
                 cameFrom[w] = v
-                
+
+
     return (frontier, cameFrom, costSoFar[v], timeSoFar[v])
 
 
@@ -186,7 +200,11 @@ def dijkstra(graph, origin, destination,  regionTransform,
             v_currents = gridUtils.world2grid(v_latlon[0], v_latlon[1], 
                     currentsTransform, currentsExtent_u["rows"])
 
-        edges = graph[v]
+        try:
+            edges = graph[v]
+        except:
+            continue
+
         for w in edges:
             w_latlon = gridUtils.grid2world(w[0], w[1], regionTransform, regionExtent["rows"])
 
@@ -294,12 +312,15 @@ parser.add_option("-g", "--graph",
 parser.add_option("-m", "--map",
         help = "Path to save solution path map",        
         default = "/home/ekrell/Downloads/ADVGEO_DL/sample_region_graph_mini_uniform_path.png")
-parser.add_option("-u", "--currents_u",
-        help = "Path to raster containing u components of water velocity",
-        default = "/home/ekrell/Downloads/ADVGEO_DL/sample_region_currents_u_2.tif")
-parser.add_option("-v", "--currents_v",
-        help = "Path to raster containing v components of water velocity.",
-        default = "/home/ekrell/Downloads/ADVGEO_DL/sample_region_currents_v_2.tif")
+parser.add_option("-p", "--path",
+        help = "Path to save solution path",
+        default = "/home/ekrell/Downloads/ADVGEO_DL/sample_region_graph_mini_uniform_path.txt")
+parser.add_option("-u", "--currents_mag",
+        help = "Path to raster containing magnitude of water velocity",
+        default = None)
+parser.add_option("-v", "--currents_dir",
+        help = "Path to raster containing direction of water velocity.",
+        default = None)
 parser.add_option("--sx", 
         help = "Start longitude.",
         default = -70.92)
@@ -315,26 +336,34 @@ parser.add_option("--dy",
 parser.add_option("--solver",
         help = "Path finding algorithm (A*, dijkstra).",
         default = "dijkstra")
+parser.add_option("--speed",
+        help = "Target boat speed (meters/second).",
+        default = 0.5)
 
 (options, args) = parser.parse_args()
 
 regionRasterFile = options.region
 graphFile = options.graph
 mapOutFile = options.map
-currentsRasterFile_u = options.currents_u
-currentsRasterFile_v = options.currents_v
-startPoint = (options.sy, options.sx)
-endPoint = (options.dy, options.dx)
+pathOutFile = options.path
+currentsRasterFile_u = options.currents_mag
+currentsRasterFile_v = options.currents_dir
+startPoint = (float(options.sy), float(options.sx))
+endPoint = (float(options.dy), float(options.dx))
 solver = options.solver.lower()
-targetSpeed_mps = 0.5
+targetSpeed_mps = float(options.speed)
+
+print("Using input region raster: {}".format(regionRasterFile))
+print("      input graph file: {}".format(graphFile))
+print("  Start:", startPoint)
+print("    End:", endPoint)
+
 
 # Load raster
 regionData = gdal.Open(regionRasterFile)
 regionExtent = rsi.getGridExtent(regionData)
 regionTransform = regionData.GetGeoTransform()
 grid = regionData.GetRasterBand(1).ReadAsArray()
-
-print("Using input region raster: {}".format(regionRasterFile))
 
 # Read currents rasters
 elapsedTime = 0
@@ -377,6 +406,7 @@ start = gridUtils.world2grid(startPoint[0], startPoint[1], regionTransform, regi
 end = gridUtils.world2grid(endPoint[0], endPoint[1], regionTransform, regionExtent["rows"])
 
 # solve
+t0 = time.time()
 if usingCurrents:   # Solve with current forces --> energy cost
     if solver == "a*":
         D, P, C, T = astar(graph, start, end, regionTransform, 
@@ -391,6 +421,8 @@ else:   # Default to distance-based
         D, P, C, T = astar(graph, start, end, regionTransform)
     else:  # Default to dijkstra
         D, P, C, T = dijkstra(graph, start, end, regionTransform)
+t1 = time.time()
+print("Done solving with {}, {} seconds".format(solver, t1-t0))
 
 path = []
 while 1:
@@ -427,7 +459,18 @@ fig, ax = plt.subplots(nrows=1, ncols=1)
 ax.set_ylim(0, regionExtent["rows"])
 ax.set_xlim(0, regionExtent["cols"])
 ax.set_facecolor('xkcd:lightblue')
-plt.scatter(list(zip(*graph.keys()))[1], list(zip(*graph.keys()))[0], color = 'green', s = 0.025, alpha = 0.1)
+# Plot raster
+plt.imshow(grid, cmap=plt.get_cmap('gray'))
+# Plot graph edges
+#for v in graph.keys():
+#    for w in graph[v]:
+#        plt.plot([v[1], w[1]], [v[0], w[0]], color = 'salmon', alpha = 0.75, linewidth = 0.5)
+# Plot graph nodes
+#plt.scatter(list(zip(*graph.keys()))[1], list(zip(*graph.keys()))[0], color = 'green', s = 0.25, alpha = 1)
+# Plot path
 plt.plot(lons, lats)
+
 ax.set_ylim(ax.get_ylim()[::-1])
 plt.savefig(mapOutFile)
+
+np.savetxt(pathOutFile, path, delimiter=',')
