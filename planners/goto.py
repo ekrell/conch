@@ -8,12 +8,30 @@ while miniziming distance, minimizing energy use, avoiding obstacles,
 and maximizing target capture.
 '''
 
+def getGridExtent (data):
+    # Source: gis.stackexchange.com/a/104367
+
+    # data: a gdal object
+    cols = data.RasterXSize
+    rows = data.RasterYSize
+    transform = data.GetGeoTransform ()
+
+    minx = transform[0]
+    maxy = transform[3]
+    maxx = minx + transform[1] * cols
+    miny = maxy + transform[5] * rows
+
+    extent = { 'minx' : minx, 'miny' : miny, 'maxx' : maxx, 'maxy' : maxy, 'rows' : rows, 'cols' : cols  }
+    return extent
+
+
 # Typical modules
 from math     import acos, cos, sin, ceil
 from optparse import OptionParser
 import pandas as pd
 import os, sys
 import matplotlib.pyplot  as plt
+import dill as pickle
 # Geographic modules
 from osgeo import gdal
 # Optimization modules
@@ -24,7 +42,6 @@ import gridUtils          as GridUtil
 import plannerTools       as PlannerTools
 import entityFitness      as TargetFitness
 import plannerVis         as PlannerVis
-import rasterSetInterface as rsi
 
 # Constants
 HYPERPARAMS_DEFAULT = \
@@ -99,13 +116,10 @@ def solveProblem (start, target, environment):
                 algo = algorithm.bee_colony(gen) # Default params
         else:
             print("Algorithm {} not supported".format(hyper[0]))
-            exit(-1)
-
-        print(algo)
-        exit(0)
+            exit(0)
 
         # Apply solver
-        isl = island(algo, prob, environment['plannerGoto']['individuals'])
+        isl = island(algo, prob, 20)# environment['plannerGoto']['individuals'])
         isl.evolve(1)
 
         log = []
@@ -222,8 +236,8 @@ class highestCurrentProblem(base):
                         self.xStop,
                         environment["region"]["extent"]["rows"],
                         environment["region"]["extent"]["cols"],
-                        environment["forces"]["magnitude"]["raster"],
-                        environment["forces"]["direction"]["raster"],
+                        environment["forces"]["magnitude"]["data"],
+                        environment["forces"]["direction"]["data"],
                         self.pixelSize_m,
                         distance,
                         duration,
@@ -236,8 +250,8 @@ class highestCurrentProblem(base):
                 # Combine objectives into single fitness function
                 f = distance["total"]            * weights["distance"] \
                   + distance["penaltyWeighted"]  * weights["obstacle"] \
-                  + work["total"]                * weights["current"]  \
-                  - reward['weightedTotal']      * weights["entity"]
+                  + work["total"]                * weights["current"] # \
+                  #- reward['weightedTotal']      * weights["entity"]
 
                 return (f, )
 
@@ -354,7 +368,15 @@ def main():
     environment = dict()
     raster = gdal.Open(options.region_file)
     grid = raster.GetRasterBand(1).ReadAsArray()
-    extent = rsi.getGridExtent(raster)
+    extent = getGridExtent(raster)
+    magnitudeForceRaster = gdal.Open(options.magnitude_force_file)
+    directionForceRaster = gdal.Open(options.direction_force_file)
+
+    if options.hyperparams is not None:
+        hyperparams = options.hyperparams.split(',')
+    else:
+        hyperparams = HYPERPARAMS_DEFAULT
+
     environment["region"] = {
             "file"   : options.region_file,
             "raster" : raster,
@@ -368,11 +390,13 @@ def main():
     environment["forces"] = {
             "magnitude" : {
                     "file"   : options.magnitude_force_file,
-                    "raster" : gdal.Open(options.magnitude_force_file),
+                    "raster" : magnitudeForceRaster,
+                    "data"   : magnitudeForceRaster.ReadAsArray(),
                 },
             "direction" : {
                     "file"   : options.direction_force_file,
-                    "raster" : gdal.Open(options.direction_force_file),
+                    "raster" : directionForceRaster,
+                    "data"   : directionForceRaster.ReadAsArray(),
                 }
         }
     environment["vehicle"] = {
@@ -393,7 +417,7 @@ def main():
             "obstacleWeight" : options.obstacle_weight,
             "currentWeight"  : options.force_weight,
             "entityWeight"   : options.entity_weight,
-            "hyperparams"    : options.hyperparams.split(','),
+            "hyperparams"    : hyperparams,
         }
     environment["logbook"] = {
             "grid"    : None,
@@ -439,11 +463,8 @@ def main():
             environment["region"]["file"], path, 5, options.figure_out)
         plt.show()
 
-
-
         print("work", work)
         print("f", f)
-        exit(0)
 
     #######
     # Run #
@@ -464,9 +485,6 @@ def main():
     # Map (and save) the solution
     map_ax = PlannerVis.makeGotoMap(environment["region"]["raster"],
         environment["region"]["file"], [solution], 5, options.figure_out)
-    plt.show()
-
-    print(solution["path"])
 
     #################
     # Store results #

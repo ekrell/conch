@@ -27,31 +27,31 @@ CMD_PREFIX="python planners/goto.py \
     --pickle_out             test/data/alg-{1}-{2}-{3}-{4}.pickle"
 
 # Repetitions for each experiment, since stochastic
-REPS=$(seq 0 1 10)
+REPS=$(seq 0 1 5)
 
 # Differential Evolution
 CMD_DE="$CMD_PREFIX \
     --hyperparams de,{1},{2}"
 CMD_DE="${CMD_DE//alg/de}"
-LS_f=$(seq 0.0 0.1 1.0)
-LS_cr=$(seq 0.0 0.1 1.0)
+LS_f=$(seq 0.0 0.2 1.0)
+LS_cr=$(seq 0.0 0.2 1.0)
 CMD_DE_PARA="parallel -j $CHUNKS $CMD_DE ::: $LS_f ::: $LS_cr ::: $REPS"
 
 # Simple Genetic Algorithm
 CMD_SGA="$CMD_PREFIX \
     --hyperparams sga,{1},{2}"
 CMD_SGA="${CMD_SGA//alg/sga}"
-LS_r=$(seq 0.0 0.1 1.0)
-LS_m=$(seq 0.0 0.1 1.0)
+LS_r=$(seq 0.0 0.2 1.0)
+LS_m=$(seq 0.0 0.2 1.0)
 CMD_SGA_PARA="parallel -j $CHUNKS $CMD_SGA ::: $LS_r ::: $LS_m ::: $REPS"
 
 # Particle Swarm Optimization
 CMD_PSO="$CMD_PREFIX \
     --hyperparams pso,{1},{2},{3}"
 CMD_PSO="${CMD_PSO//alg/pso}"
-LS_omega=$(seq 0.0 0.1 1.0)
-LS_eta1=$(seq 0.0 0.4 4.0)
-LS_eta2=$(seq 0.0 0.4 4.0)
+LS_omega=$(seq 0.0 0.2 1.0)
+LS_eta1=$(seq 0.0 0.8 4.)
+LS_eta2=$(seq 0.0 0.8 4.0)
 CMD_PSO_PARA="parallel -j $CHUNKS $CMD_PSO ::: $LS_omega ::: $LS_eta1 \
                                            ::: $LS_eta2  ::: $REPS"
 
@@ -59,7 +59,7 @@ CMD_PSO_PARA="parallel -j $CHUNKS $CMD_PSO ::: $LS_omega ::: $LS_eta1 \
 CMD_ABC="$CMD_PREFIX \
     --hyperparams abc,{1}"
 CMD_ABC="${CMD_ABC//alg/abc}"
-LS_tries=$(seq 0 5 50)
+LS_tries=$(seq 0 10 50)
 CMD_ABC_PARA="parallel -j $CHUNKS $CMD_ABC ::: $LS_tries ::: $REPS"
 
 

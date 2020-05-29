@@ -388,8 +388,10 @@ def pathEnergy (path, yStart, xStart, yStop, xStop,
     bandIdx  = 1
     bandIdxC = bandIdx
     # Init grids using band
-    gridM = np.flipud(gridMagnitude.GetRasterBand(bandIdx).ReadAsArray())
-    gridD = np.flipud(gridDirection.GetRasterBand(bandIdx).ReadAsArray())
+    #gridM = np.flipud(gridMagnitude.GetRasterBand(bandIdx).ReadAsArray())
+    #gridD = np.flipud(gridDirection.GetRasterBand(bandIdx).ReadAsArray())
+    gridM = gridMagnitude[bandIdx, :, :]
+    gridD = gridDirection[bandIdx, :, :]
 
     # First segment (between start and waypopint one)
     work["segments"].append (getWorkAlongLine (yStart, xStart, yi, xi,
@@ -410,9 +412,10 @@ def pathEnergy (path, yStart, xStart, yStop, xStop,
          # Only update grids if new bandIdx
          if bandIdx != bandIdxC:
              bandIdxC = bandIdx
-             gridM = np.flipud(gridMagnitude.GetRasterBand(bandIdx).ReadAsArray())
-             gridD = np.flipud(gridDirection.GetRasterBand(bandIdx).ReadAsArray())
-
+             #gridM = np.flipud(gridMagnitude.GetRasterBand(bandIdx).ReadAsArray())
+             #gridD = np.flipud(gridDirection.GetRasterBand(bandIdx).ReadAsArray())
+             gridM = gridMagnitude[bandIdx, :, :]
+             gridD = gridDirection[bandIdx, :, :]
          work["segments"].append (getWorkAlongLine (yi, xi, yj, xj,
              gridM, gridD, yLimit, xLimit, USV["speed"], pixelResolution, headings[ii]))
 
@@ -427,9 +430,10 @@ def pathEnergy (path, yStart, xStart, yStop, xStop,
     if bandIdx != bandIdxC:
         #print("update", bandIdx, bandIdxC)
         bandIdxC = bandIdx
-        gridM = gridMagnitude.GetRasterBand(bandIdx).ReadAsArray()
-        gridD = gridDirection.GetRasterBand(bandIdx).ReadAsArray()
-
+        #gridM = gridMagnitude.GetRasterBand(bandIdx).ReadAsArray()
+        #gridD = gridDirection.GetRasterBand(bandIdx).ReadAsArray()
+        gridM = gridMagnitude[bandIdx, :, :]
+        gridD = gridDirection[bandIdx, :, :]
     work["segments"].append (getWorkAlongLine (yj, xj, yStop, xStop,
         gridM, gridD, yLimit, xLimit, USV["speed"], pixelResolution, headings[ii]))
 
@@ -528,8 +532,8 @@ def statPath (environment, path, start, target, offset = 0):
         xStop,
         environment["region"]["extent"]["rows"],
         environment["region"]["extent"]["cols"],
-        environment["forces"]["magnitude"]["raster"],
-        environment["forces"]["direction"]["raster"],
+        environment["forces"]["magnitude"]["data"],
+        environment["forces"]["direction"]["data"],
         pixelSize_m,
         distance,
         duration,

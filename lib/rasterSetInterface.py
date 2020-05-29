@@ -43,8 +43,6 @@ def components2MagDir (vecA, vecB):
 
         return magnitude, direction
 
-
-
 def getMagDir (u, v):
 	c = [ components2MagDir(v, (1, 0)) for v in zip (u, v)]
 	return c
