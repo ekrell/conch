@@ -16,11 +16,12 @@ import pygmo as pg
 class solvePath:
     def __init__(self, start, end, grid, targetSpeed_mps, bounds = None,
                  currentsGrid_u = None, currentsGrid_v = None, currentsTransform = None, regionTransform = None,
-                 waypoints = 5, timeIn = 0, interval = 3600):
+                 waypoints = 5, timeIn = 0, interval = 3600, weights = (1, 1, 1)):
         self.start = np.array(start).astype(int)
         self.end = np.array(end).astype(int)
         self.waypoints = waypoints
         self.dim = waypoints * 2
+        self.pathlen = waypoints + 2
         self.grid = grid
         self.rows = grid.shape[0]
         self.cols = grid.shape[1]
@@ -37,14 +38,15 @@ class solvePath:
         if bounds is None:
             bounds = [0, self.rows, 0, self.cols]
         self.b = bounds
+        self.weights = weights
 
     def fitness(self, x):
         path = self.emptyPath
         path[1:self.waypoints + 1, 0] = x[::2].astype(int)
         path[1:self.waypoints + 1, 1] = x[1::2].astype(int)
-        work, dist, obs = calcWork(path, self.grid, self.targetSpeed_mps,
+        work, dist, obs = calcWork(path, self.pathlen, self.grid, self.targetSpeed_mps,
                 self.currentsGrid_u, self.currentsGrid_v, self.currentsTransform, self.regionTransform, self.timeIn, self.interval)
-        return [(work * 10) + dist + (obs * obs * 100)]
+        return [(work * self.weights[1]) + (0 * self.weights[2]) + (obs * obs * 100)]
 
     def get_bounds(self):
         lowerBounds = np.zeros(self.dim)
@@ -66,19 +68,10 @@ def raster2array(raster, dim_ordering="channels_last", dtype='float32'):
     bands = [raster.GetRasterBand(i) for i in range(1, raster.RasterCount + 1)]
     return np.array([gdn.BandReadAsArray(band) for band in bands]).astype(dtype)
 
-def calcWork(path, regionGrid, targetSpeed_mps, currentsGrid_u = None, currentsGrid_v = None, currentsTransform = None, regionTransform = None, timeIn = 0, interval = 3600):
+def calcWork(path, n, regionGrid, targetSpeed_mps, currentsGrid_u = None, currentsGrid_v = None, currentsTransform = None, regionTransform = None, timeIn = 0, interval = 3600):
     '''
     This function calculates cost to move vehicle along path
     '''
-
-    regionRows = regionGrid.shape[0]
-    if currentsGrid_u is not None:
-        if (currentsGrid_v is None or currentsTransform is None or regionTransform is None):
-            print("Must supply -all- water current parameters.")
-            exit(-1)
-        currentsRows = currentsGrid_u.shape[1]
-
-    n = len(path)
     if n <= 1:
         return 0 # Vehicle does nothing
 
@@ -89,7 +82,8 @@ def calcWork(path, regionGrid, targetSpeed_mps, currentsGrid_u = None, currentsG
     pWork = np.zeros(n)
 
     # Estimate elapsed time, temporal raster band
-    (index, rem) = divmod(timeIn, interval)
+    elapsed = float(timeIn)
+    (index, rem) = divmod(elapsed, interval)
     index = floor(index)
 
     for i in range(1, n):
@@ -121,10 +115,10 @@ def calcWork(path, regionGrid, targetSpeed_mps, currentsGrid_u = None, currentsG
 
             # Convert to latlon to get correct pixel in the water currents raster
             # This is becuase the size/resolution of regions and currents might not be equal
-            v_latlon = grid2world(v[0], v[1], regionTransform, regionRows)
-            v_currents = world2grid(v_latlon[0], v_latlon[1], currentsTransform, currentsRows)
-            w_latlon = grid2world(w[0], w[1], regionTransform, regionRows)
-            w_currents = world2grid(w_latlon[0], w_latlon[1], currentsTransform, currentsRows)
+            v_latlon = grid2world(v[0], v[1], regionTransform, grid.shape[0])
+            v_currents = world2grid(v_latlon[0], v_latlon[1], currentsTransform, currentsGrid_u.shape[1])
+            w_latlon = grid2world(w[0], w[1], regionTransform, grid.shape[0])
+            w_currents = world2grid(w_latlon[0], w_latlon[1], currentsTransform, currentsGrid_u.shape[1])
 
             b = list(bresenham(v_currents[0], v_currents[1], w_currents[0], w_currents[1]))
             pixeldist = distance / (len(b) -1)
@@ -148,9 +142,9 @@ def calcWork(path, regionGrid, targetSpeed_mps, currentsGrid_u = None, currentsG
                 work += magaDV * pixeldist
 
                 # Update time
-                timeDelta = pixeldist / targetSpeed_mps
-                (index, rem) = divmod(timeIn, interval)
-                index = floor(index)
+                elapsed += pixeldist / targetSpeed_mps
+                (index, rem) = divmod(elapsed, interval)
+                index = min(floor(index), currentsGrid_u.shape[0] - 2)
 
         pDist[i] = distance
         pWork[i] = work
@@ -189,31 +183,31 @@ parser = OptionParser()
 # Environment
 parser.add_option("-r", "--region",
                   help  = "Path to raster containing occupancy grid (0 -> free space).",
-                  default = "test/gsen6331/full.tif")
+                  default = "test/acc2020/full.tif")
 parser.add_option("-m", "--map",
                   help = "Path to save solution path map.",
-                  default = "test/gsen6331/metatest.png")
+                  default = "test/acc2020/test.png")
 parser.add_option("-p", "--path",
                   help = "Path to save solution path.",
-                  default = "test/gsen6331/metatest.txt")
+                  default = "test/acc2020/test.txt")
 parser.add_option("-u", "--currents_mag",
                   help = "Path to raster with magnitude of water velocity.",
-                  default = None)
+                  default = "test/acc2020/waterMag.tif")
 parser.add_option("-v", "--currents_dir",
                   help = "Path to raster with direction of water velocity.",
-                  default = None)
+                  default = "test/acc2020/waterDir.tif")
 parser.add_option(      "--sx",
                   help = "Start longitude.",
-                  default = -70.92)
+                  default = -70.99428)
 parser.add_option(      "--sy",
                   help = "Start latitude.",
-                  default = 42.29)
+                  default = 42.32343)
 parser.add_option(      "--dx",
                   help = "Destination longitude.",
-                  default = -70.96)
+                  default = -70.88737)
 parser.add_option(      "--dy",
                   help = "Destination latitude.",
-                  default = 42.30)
+                  default = 42.33600)
 parser.add_option(      "--speed",
                   help = "Target boat speed (meters/second).",
                   default = 0.5)
@@ -235,11 +229,9 @@ parser.add_option(      "--pool_size",       type = "int", default = 100,
                   help = "Number of individuals in optimization pool")
 parser.add_option(      "--distance_weight",     type = "int", default = 1,
                   help = "Weight of distance attribute in fitness.")
-parser.add_option(      "--obstacle_weight", type = "int", default = 100,
-                  help = "Weight of obstacle attribute in fitness.")
 parser.add_option(      "--force_weight",    type = "int", default = 1,
                   help = "Weight of force attribute in fitness.")
-parser.add_option(     "--reward_weight",    type = "int", default = 0.001,
+parser.add_option(     "--reward_weight",    type = "int", default = 1,
                   help = "Weight of reward attribute in fitness")
 parser.add_option(     "--hyperparams",
                   help = "Comma-delimited selection for solver and its options",
@@ -264,9 +256,9 @@ numWaypoints = options.num_waypoints
 generations = options.generations
 poolSize = options.pool_size
 distanceWeight = options.distance_weight
-obstacleWeight = options.obstacle_weight
 forceWeight = options.force_weight
 rewardWeight = options.reward_weight
+weights = (distanceWeight, forceWeight, rewardWeight)
 hyperparams = options.hyperparams.split(",")
 for i in range(1, len(hyperparams)):
     hyperparams[i] = float(hyperparams[i])
@@ -322,12 +314,15 @@ start = world2grid(startPoint[0], startPoint[1], regionTransform, regionExtent["
 end = world2grid(endPoint[0], endPoint[1], regionTransform, regionExtent["rows"])
 
 # Solve
-prob = pg.problem(solvePath(start, end, grid, targetSpeed_mps = targetSpeed_mps, waypoints = numWaypoints, bounds = bounds,
-                            currentsGrid_u = currentsGrid_u, currentsGrid_v = currentsGrid_v,
-                            currentsTransform = currentsTransform_u, regionTransform = regionTransform,
-                            timeIn = timeOffset_s, interval = timeInterval_s))
+print("Begin solving")
+prob = pg.problem(solvePath(start, end, grid, targetSpeed_mps = targetSpeed_mps,
+        waypoints = numWaypoints, bounds = bounds, weights = weights,
+        currentsGrid_u = currentsGrid_u, currentsGrid_v = currentsGrid_v,
+        currentsTransform = currentsTransform_u, regionTransform = regionTransform,
+        timeIn = timeOffset_s, interval = timeInterval_s))
 algo = pg.algorithm(pg.pso(gen = generations, omega = hyperparams[1], eta1 = hyperparams[2], eta2 = hyperparams[3]))
 #algo = pg.algorithm(pg.bee_colony(gen = generations, limit = 20))
+algo.set_verbosity(10)
 pop = pg.population(prob, poolSize)
 t0 = time.time()
 pop = algo.evolve(pop)
@@ -343,7 +338,7 @@ path[0, :] = np.array(start).astype(int)
 path[numWaypoints + 1, :] = np.array(end).astype(int)
 path[1:numWaypoints + 1, 0] = x[::2].astype(int)
 path[1:numWaypoints + 1, 1] = x[1::2].astype(int)
-work, dist, obs = calcWork(path, grid, targetSpeed_mps,
+work, dist, obs = calcWork(path, numWaypoints + 2, grid, targetSpeed_mps,
                            currentsGrid_u, currentsGrid_v, currentsTransform_u, regionTransform,
                            timeOffset_s, timeInterval_s)
 
@@ -385,4 +380,3 @@ plt.plot(lons[-1], lats[-1], 'rv')
 ax.set_ylim(ax.get_ylim()[::-1])
 plt.savefig(mapOutFile)
 np.savetxt(pathOutFile, path, delimiter=',')
-

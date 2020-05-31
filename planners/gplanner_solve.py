@@ -63,9 +63,9 @@ def calcWork(v, w, currentsGrid_u, currentsGrid_v, targetSpeed_mps, timeIn = 0, 
         [time index, row, column] = v
     '''
 
-    (index, rem) = divmod(timeIn, interval)
+    elapsed = float(timeIn)
+    (index, rem) = divmod(elapsed, interval)
     index = floor(index)
-
 
     if v != w:
        # Heading
@@ -112,7 +112,7 @@ def calcWork(v, w, currentsGrid_u, currentsGrid_v, targetSpeed_mps, timeIn = 0, 
             work += magaDV * pixeldist
 
             # Update time
-            timeDelta = pixeldist / targetSpeed_mps
+            timeIn += pixeldist / targetSpeed_mps
             (index, rem) = divmod(timeIn, interval)
             index = floor(index)
 
@@ -393,13 +393,13 @@ if currentsRasterFile_u is not None and currentsRasterFile_v is not None:
 
     # Load u components
     currentsData_u = gdal.Open(currentsRasterFile_u)
-    currentsExtent_u = rsi.getGridExtent(currentsData_u)
+    currentsExtent_u = getGridExtent(currentsData_u)
     currentsTransform_u = currentsData_u.GetGeoTransform()
     currentsGrid_u = raster2array(currentsData_u)
 
     # Load v components
     currentsData_v = gdal.Open(currentsRasterFile_v)
-    currentsExtent_v = rsi.getGridExtent(currentsData_v)
+    currentsExtent_v = getGridExtent(currentsData_v)
     currentsTransform_v = currentsData_v.GetGeoTransform()
     currentsGrid_v = raster2array(currentsData_v)
 
@@ -458,14 +458,14 @@ for point in path[1:]:
     point_latlon = grid2world(point[0], point[1], regionTransform, regionExtent["rows"])
     path_distance += haversine(prev_latlon, point_latlon)
     prev_point = point
-path_duration = (path_distance / (targetSpeed_mps / 100)) / 60)
+path_duration = (path_distance / (targetSpeed_mps / 100)) / 60
 
 if usingCurrents:
     print("Planning results (with currents):")
 else:
     print("Planning results (no currents):")
 print('    Distance: {:.4f} km'.format(path_distance))
-print('    Duration: {:.4f} min'.format(path_duration)
+print('    Duration: {:.4f} min'.format(path_duration))
 print('    Cost: {:.4f}'.format(C))
 
 # Plot solution path
