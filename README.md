@@ -1,7 +1,6 @@
 # conch
 Path planning for unmanned surface vehicles subject to environmental forces. 
 
-
 # Overview
 
 This repo contains multiple tools for unmanned surface vehicle path planning. 
@@ -24,7 +23,7 @@ Tools are classified as either _builders_ or _solvers_, both being part of the p
 ## Planners
 
 - `metaplanner.py`: Metaheuristic planning on a raster map that incorporates work minimization and reward maximization. User's choice of metaheuristic algorithm; default is particle swarm optimization. 
-- `gplanner_solve.py`: Graph-based planning with either Dijkstra or A* (nput graph is a Python dictionary).
+- `gplanner_solve.py`: Graph-based planning with either Dijkstra or A* (input graph is a Python dictionary).
 
 # Related publications
 
@@ -33,13 +32,23 @@ Tools are classified as either _builders_ or _solvers_, both being part of the p
     - American Control Conference. March 2020
     - DOI: 10.13140/RG.2.2.30318.56640
 
-# Tutorials
+# Quick start tutorials
 
 ### Metaheuristic path planning with `metaplanner.py`
 
 ### Dijkstra or A* on uniform grids or visibility graphs
 
 ### Dijkstra or A* on extended visibility graphs
+
+# Repo organization
+
+- planners: main executables (builders and planners)
+- tools: minor utilities for data format conversions, etc
+- test: example input files, scripts with experimental runs, and outputs
+    - acc2020: scripts and outputs for ACC 2020 publication (DOI: 10.13140/RG.2.2.30318.56640)
+    - gsen6331: scripts and outputs for TAMUCC course GSEN 6331
+
+# Tool documentation
 
 
 
