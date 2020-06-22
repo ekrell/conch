@@ -12,7 +12,7 @@ Other planning objectives may be incorporated by individual tools.
 Some of the algorithms include a maximization of the path's reward. The reward refers to a grid of values across the search domain.
 For example, the reward might come from a map of seagrass meadows if it is desirable for the robot's path to intersect it for data collection. 
 
-Tools are classified as either _builders_ or _solvers_, both being part of the planning process. For example, the builder 'vgplanner_build.py' can be used to convert a raster map to visibility graph. The, the solver 'gplanner_solve.py' can run either Dijkstra or A* to solve a path on that graph. Other solvers, such as `metaplanner.py` take a raster directly and do not have an associated builder. 
+Tools are classified as either _builders_ or _solvers_, both being part of the planning process. For example, the builder `vgplanner_build.py` can be used to convert a raster map to visibility graph. The, the solver `gplanner_solve.py` can run either Dijkstra or A* to solve a path on that graph. Other solvers, such as `metaplanner.py` take a raster directly and do not have an associated builder. 
 
 ## Builders
 
@@ -29,9 +29,9 @@ Tools are classified as either _builders_ or _solvers_, both being part of the p
 # Related publications
 
 - [Autonomous Water Surface Vehicle Metaheuristic Mission Planning using Self-generated Goals and Environmental Forecasts](https://www.researchgate.net/publication/340066053_Autonomous_Water_Surface_Vehicle_Metaheuristic_Mission_Planning_using_Self-generated_Goals_and_Environmental_Forecasts)
--- Evan Krell, Scott A. King, Luis Rodolfo Garcia Carrillo
--- American Control Conference. March 2020
--- DOI: 10.13140/RG.2.2.30318.56640
+    - Evan Krell, Scott A. King, Luis Rodolfo Garcia Carrillo
+    - American Control Conference. March 2020
+    - DOI: 10.13140/RG.2.2.30318.56640
 
 # Tutorials
 
