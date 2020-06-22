@@ -12,9 +12,24 @@ from osgeo import gdal
 from pyvisgraph.visible_vertices import visible_vertices, point_in_polygon
 from pyvisgraph.visible_vertices import closest_point
 from pyvisgraph.graph import Graph, Edge
-# Conch modules
-import rasterSetInterface as rsi
-import gridUtils
+
+def getGridExtent (data):
+    # Source: https://gis.stackexchange.com/a/104367
+    #
+    # data: gdal object
+    cols = data.RasterXSize
+    rows = data.RasterYSize
+    transform = data.GetGeoTransform()
+    minx = transform[0]
+    maxy = transform[3]
+    maxx = minx + transform[1] * cols
+    miny = maxy + transform[5] * rows
+    return { 'minx' : minx, 'miny' : miny, 'maxx' : maxx, 'maxy' : maxy, 'rows' : rows, 'cols' : cols   }
+
+def world2grid (lat, lon, transform, nrow):
+    row = int ((lat - transform[3]) / transform[5])
+    col = int ((lon - transform[0]) / transform[1])
+    return (row, col)
 
 ###########
 # Options #
@@ -65,7 +80,7 @@ print("Done loading visibility graph")
 
 # Scale based on raster dimensions
 regionData = gdal.Open(rasterFileIn)
-regionExtent = rsi.getGridExtent(regionData)
+regionExtent = getGridExtent(regionData)
 regionTransform = regionData.GetGeoTransform()
 grid = regionData.GetRasterBand(1).ReadAsArray()
 
@@ -75,7 +90,7 @@ miny = regionExtent["miny"]
 maxy = regionExtent["maxy"]
 
 # Add the start and stop point to grid
-origin = vg.Point(round((round(startPoint[1], 10) - minx) / (maxx - minx) * rangeWidth, 6), 
+origin = vg.Point(round((round(startPoint[1], 10) - minx) / (maxx - minx) * rangeWidth, 6),
         round((round(startPoint[0], 10) - miny) / (maxy - miny) * rangeWidth, 6))
 destination = vg.Point(round((round(endPoint[1], 10) - minx) / (maxx - minx) * rangeWidth, 6),
         round((round(endPoint[0], 10) - miny) / (maxy - miny) * rangeWidth, 6))
@@ -87,7 +102,7 @@ origin_exists = origin in graph.visgraph
 dest_exists = destination in graph.visgraph
 orgn = None if origin_exists else origin
 dest = None if dest_exists else destination
-if not origin_exists: 
+if not origin_exists:
     for v in visible_vertices(origin, graph.graph, destination=dest):
         graph.visgraph.add_edge(Edge(origin, v))
 if not dest_exists:
@@ -99,12 +114,12 @@ dgraph = {}
 
 for v in graph.visgraph.get_points():
     v_latlon = ( (v.y  / rangeWidth) * (maxy - miny) + miny, (v.x  / rangeWidth) * (maxx - minx) + minx )
-    v_rowcol = gridUtils.world2grid(v_latlon[0], v_latlon[1], regionTransform, regionExtent["rows"])
+    v_rowcol = world2grid(v_latlon[0], v_latlon[1], regionTransform, regionExtent["rows"])
     v_edges = []
     for edge in graph.visgraph[v]:
         w = edge.get_adjacent(v)
         w_latlon = ( (w.y  / rangeWidth) * (maxy - miny) + miny, (w.x  / rangeWidth) * (maxx - minx) + minx )
-        w_rowcol = gridUtils.world2grid(w_latlon[0], w_latlon[1], regionTransform, regionExtent["rows"])
+        w_rowcol = world2grid(w_latlon[0], w_latlon[1], regionTransform, regionExtent["rows"])
 
         v_edges.append(w_rowcol)
 

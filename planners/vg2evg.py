@@ -9,9 +9,19 @@ from osgeo import gdal
 from pyvisgraph.visible_vertices import visible_vertices, point_in_polygon
 from pyvisgraph.visible_vertices import closest_point
 from pyvisgraph.graph import Graph, Edge
-# Conch modules
-import rasterSetInterface as rsi
-import gridUtils
+
+def getGridExtent (data):
+    # Source: https://gis.stackexchange.com/a/104367
+    #
+    # data: gdal object
+    cols = data.RasterXSize
+    rows = data.RasterYSize
+    transform = data.GetGeoTransform()
+    minx = transform[0]
+    maxy = transform[3]
+    maxx = minx + transform[1] * cols
+    miny = maxy + transform[5] * rows
+    return { 'minx' : minx, 'miny' : miny, 'maxx' : maxx, 'maxy' : maxy, 'rows' : rows, 'cols' : cols   }
 
 ###########
 # Options #
@@ -31,16 +41,16 @@ parser.add_option("-e", "--evisgraph",
 parser.add_option("-m", "--map",
         help = "Path to save solution path map",
         default = "/home/ekrell/Downloads/ADVGEO_DL/sample_region_graph_mini_evg.png")
-parser.add_option("--ydiff", 
+parser.add_option("--ydiff",
         help = "Skip distance between initial rows, in percent of raster height.",
         default = 5)
-parser.add_option("--xdiff", 
+parser.add_option("--xdiff",
         help = "Skip distance between initial columns, in percent of raster height.",
         default = 5)
-parser.add_option("--radius", 
+parser.add_option("--radius",
         help = "Radius for circle-check.",
         default = 16)
-parser.add_option("--threshold", 
+parser.add_option("--threshold",
         help = "Threshold for circle-check.",
         default = 2)
 
@@ -58,7 +68,7 @@ threshold = int(options.threshold)
 # Load raster
 regionData = gdal.Open(rasterFileIn)
 # Find extent of raster (search domain)
-regionExtent = rsi.getGridExtent(regionData)
+regionExtent = getGridExtent(regionData)
 
 # Load visibility graph
 print("Begin loading visibility graph")
@@ -94,7 +104,7 @@ for c in centers:
     if nWithin >= threshold:
         # Centroid of all points & circle center
         g = np.mean(np.array(pts), axis=0)
-        # Above often lands in polygons, 
+        # Above often lands in polygons,
         # so now take the centroid between g and circle center
         g = np.mean(np.array([c, g]), axis = 0)
         generated.append(g)

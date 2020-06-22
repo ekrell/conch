@@ -112,12 +112,9 @@ def calcWork(v, w, currentsGrid_u, currentsGrid_v, targetSpeed_mps, timeIn = 0, 
             work += magaDV * pixeldist
 
             # Update time
-            timeIn += pixeldist / targetSpeed_mps
-            (index, rem) = divmod(timeIn, interval)
+            elapsed += pixeldist / targetSpeed_mps
+            (index, rem) = divmod(elapsed, interval)
             index = floor(index)
-
-
-
     else:
         work = 0
 

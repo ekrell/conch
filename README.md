@@ -36,15 +36,37 @@ Tools are classified as either _builders_ or _solvers_, both being part of the p
 
 ### Metaheuristic path planning with `metaplanner.py`
 
+Particle swarm optimization will be used to generate a path.
+
 ### Dijkstra or A* on uniform grids or visibility graphs
 
 ### Dijkstra or A* on extended visibility graphs
+
+An extended visibility graph (EVG) is a visibility graph with additional nodes added. A visibility graph is guaranteed to include the optimal shortest-distance path, but not necessarily the most energy-efficient. So, additional nodes offer more planning opportunities. 
+
+        # Generate visibility graph
+        python3 planners/vgplanner_build.py -r test/full.tif -g vg.graph -s full.shp -m poly.png -v vg.png -n 4 --build
+
+        # Extend visibility graph
+        python3 planners/vg2evg.py -r test/full.tif -v vg.graph -e evg.graph -m evg.png --xdiff 10 --ydiff 10 --radius 10 --threshold 2
+
+        # Convert to python dictionary
+        python3 planners/vg2g.py -r test/full.tif -v evg.graph -o evg-ex.pickle \
+            --sy 42.32343 --sx -70.99428 --dy 42.33600 --dx -70.88737
+
+        # Solve path
+        python3 planners/gplanner_solve.py -r test/full.tif -g evg-ex.pickle --currents_mag test/waterMag.tif --currents_dir test/waterDir.tif \
+            --sy 42.32343 --sx -70.99428 --dy 42.33600 --dx -70.88737 --speed 0.5 --solver a* \
+            -m evg-exsolve.png -p  evg-exsolve.txt > evg-exsolve.out
+
+
 
 # Repo organization
 
 - planners: main executables (builders and planners)
 - tools: minor utilities for data format conversions, etc
 - test: example input files, scripts with experimental runs, and outputs
+    - scripts: various scripts for setting up runs
     - acc2020: scripts and outputs for ACC 2020 publication (DOI: 10.13140/RG.2.2.30318.56640)
     - gsen6331: scripts and outputs for TAMUCC course GSEN 6331
 

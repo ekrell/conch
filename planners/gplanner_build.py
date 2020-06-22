@@ -6,8 +6,19 @@ from optparse import OptionParser
 from osgeo import gdal
 import dill as pickle
 import time
-# Conch modules
-import rasterSetInterface as rsi
+
+def getGridExtent (data):
+    # Source: https://gis.stackexchange.com/a/104367
+    #
+    # data: gdal object
+    cols = data.RasterXSize
+    rows = data.RasterYSize
+    transform = data.GetGeoTransform()
+    minx = transform[0]
+    maxy = transform[3]
+    maxx = minx + transform[1] * cols
+    miny = maxy + transform[5] * rows
+    return { 'minx' : minx, 'miny' : miny, 'maxx' : maxx, 'maxy' : maxy, 'rows' : rows, 'cols' : cols  }
 
 ###########
 # Options #
@@ -40,7 +51,7 @@ print("Using input region raster: {}".format(regionRasterFile))
 
 # Read region raster
 regionData = gdal.Open(regionRasterFile)
-regionExtent = rsi.getGridExtent(regionData)
+regionExtent = getGridExtent(regionData)
 regionTransform = regionData.GetGeoTransform()
 grid = regionData.GetRasterBand(1).ReadAsArray()
 
@@ -75,6 +86,12 @@ for row in range(regionExtent["rows"]):
 t1 = time.time()
 print("Done building uniform graph, {} seconds".format(t1 - t0))
 
+# Save graph
+pickle.dump(graph, open(graphOutFile, "wb"))
+print("Saved uniform graph to file: {}".format(graphOutFile))
+
+exit(0)
+
 # Plot graph
 print("Begin plotting uniform graph: {} nodes".format(len(graph)))
 fig, ax = plt.subplots(nrows=1, ncols=1)
@@ -85,6 +102,3 @@ print("Done plotting uniform graph")
 plt.savefig(mapOutFile)
 print("Saved uniform graph map to file: {}".format(mapOutFile))
 
-# Save graph
-pickle.dump(graph, open(graphOutFile, "wb"))
-print("Saved uniform graph to file: {}".format(graphOutFile))

@@ -13,9 +13,19 @@ import shapefile
 import random
 import time
 from osgeo import gdal
-# Conch modules
-import rasterSetInterface as rsi
-import gridUtils
+
+def getGridExtent (data):
+    # Source: https://gis.stackexchange.com/a/104367
+    #
+    # data: gdal object
+    cols = data.RasterXSize
+    rows = data.RasterYSize
+    transform = data.GetGeoTransform()
+    minx = transform[0]
+    maxy = transform[3]
+    maxx = minx + transform[1] * cols
+    miny = maxy + transform[5] * rows
+    return { 'minx' : minx, 'miny' : miny, 'maxx' : maxx, 'maxy' : maxy, 'rows' : rows, 'cols' : cols   }
 
 ###########
 # Options #
@@ -26,13 +36,13 @@ parser = OptionParser()
 parser.add_option("-r", "--region",
         help = "Path to raster containing binary occupancy region (1 -> obstacle, 0 -> free)",
         default = "/home/ekrell/Downloads/ADVGEO_DL/sample_region_mini.tif")
-parser.add_option("-g", "--graph", 
+parser.add_option("-g", "--graph",
         help = "Path to save  visibility graph",
         default = "/home/ekrell/Downloads/ADVGEO_DL/sample_region_mini.graph")
-parser.add_option("-s", "--shape", 
+parser.add_option("-s", "--shape",
         help = "Path to save shapefile",
         default = "/home/ekrell/Downloads/ADVGEO_DL/sample_region_mini.shp")
-parser.add_option("-m", "--map", 
+parser.add_option("-m", "--map",
         help = "Path to save polygon map",
         default = "/home/ekrell/Downloads/ADVGEO_DL/sample_region_mini.png")
 parser.add_option("-v", "--vgmap",
@@ -72,7 +82,7 @@ with rasterio.open(regionRasterFile) as src:
     # Store each polygon
     results = (
         {'properties': {'raster_val': v}, 'geometry': s}
-        for i, (s, v) 
+        for i, (s, v)
         in enumerate(
             shapes(image, mask=mask, transform=src.transform)))
 geoms = list(results)
@@ -89,8 +99,8 @@ for geom in geoms:
     # Simplify shape boundary (since raster artificially blocky)
     #shape_ = shape_.buffer(0.0008, join_style=1).buffer(-0.0006, join_style=1)
     shape_ = shape_.simplify(0.0005, preserve_topology=False)
-    # If smoothing too aggressive, may loose obstacles! 
-    if shape_.is_empty: 
+    # If smoothing too aggressive, may loose obstacles!
+    if shape_.is_empty:
         print ("  Warning! shape lost in simplifying.")
         continue
     polygon_ = []
@@ -132,7 +142,7 @@ shapes = input_shapefile.shapes()
 
 # Load raster
 regionData = gdal.Open(regionRasterFile)
-regionExtent = rsi.getGridExtent(regionData)
+regionExtent = getGridExtent(regionData)
 minx = regionExtent["minx"]
 maxx = regionExtent["maxx"]
 miny = regionExtent["miny"]
@@ -149,7 +159,7 @@ for shape in shapes:
         #polygon.append(vg.Point(round(point[0], 8), round(point[1], 8)))
     polygons.append(polygon)
 
-# Start building the visibility graph 
+# Start building the visibility graph
 graph = vg.VisGraph()
 print('Begin building visibility graph')
 t0 = time.time()
@@ -163,7 +173,7 @@ print("Saved visibility graph to file: {}".format(graphOutFile))
 
 # Plot visibility graph
 edges = graph.visgraph.get_edges()
-# Print only P proportion, since very time consuming to plot 
+# Print only P proportion, since very time consuming to plot
 plotProp = 0.1
 numSamples = int(len(edges) * plotProp)
 #edges = random.sample(edges, numSamples)
@@ -171,16 +181,16 @@ numSamples = int(len(edges) * plotProp)
 print("Begin plotting visibility graph: {} edges".format(len(edges)))
 for e in list(edges):
     plt.plot([ \
-          (e.p1.x  / rangeWidth) * (maxx - minx) + minx, 
-          (e.p2.x  / rangeWidth) * (maxx - minx) + minx], 
-        [ (e.p1.y / rangeWidth) * (maxy - miny) + miny, 
-          (e.p2.y / rangeWidth) * (maxy - miny) + miny], 
+          (e.p1.x  / rangeWidth) * (maxx - minx) + minx,
+          (e.p2.x  / rangeWidth) * (maxx - minx) + minx],
+        [ (e.p1.y / rangeWidth) * (maxy - miny) + miny,
+          (e.p2.y / rangeWidth) * (maxy - miny) + miny],
         color = 'green', linestyle = 'dashed', alpha = 0.5)
     plt.scatter([ \
-         (e.p1.x  / rangeWidth) * (maxx - minx) + minx, 
-         (e.p2.x  / rangeWidth) * (maxx - minx) + minx], 
+         (e.p1.x  / rangeWidth) * (maxx - minx) + minx,
+         (e.p2.x  / rangeWidth) * (maxx - minx) + minx],
         [(e.p1.y  / rangeWidth) * (maxy - miny) + miny,
-         (e.p2.y  / rangeWidth) * (maxy - miny) + miny], 
+         (e.p2.y  / rangeWidth) * (maxy - miny) + miny],
         s = 1, color = 'green')
 print("Done plotting visibiity graph")
 # Save VG map
