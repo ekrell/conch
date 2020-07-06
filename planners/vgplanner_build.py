@@ -172,13 +172,8 @@ graph.save(graphOutFile)
 print("Saved visibility graph to file: {}".format(graphOutFile))
 
 # Plot visibility graph
-edges = graph.visgraph.get_edges()
-# Print only P proportion, since very time consuming to plot
-plotProp = 0.1
-numSamples = int(len(edges) * plotProp)
-#edges = random.sample(edges, numSamples)
-
 print("Begin plotting visibility graph: {} edges".format(len(edges)))
+edges = graph.visgraph.get_edges()
 for e in list(edges):
     plt.plot([ \
           (e.p1.x  / rangeWidth) * (maxx - minx) + minx,
