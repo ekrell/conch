@@ -1,9 +1,22 @@
 # Solves a raster occupancy grid with classic search algorithm
 
 import numpy as np
-import queue
+import heapq
 import time
 from optparse import OptionParser
+import matplotlib.pyplot as plt
+from scipy.spatial import distance
+
+class PriorityQueue:
+    # Source: https://www.redblobgames.com/pathfinding/a-star/implementation.html
+    def __init__(self):
+        self.elements = []
+    def empty(self):
+        return len(self.elements) == 0
+    def put(self, item, priority):
+        heapq.heappush(self.elements, (priority, item))
+    def get(self):
+        return heapq.heappop(self.elements)[1]
 
 def getNeighbors(i, m, n, env, ntype = 4):
     '''Get all valid cells in a cells neighborhood.
@@ -126,18 +139,26 @@ def getNeighbors(i, m, n, env, ntype = 4):
 
 
 # Dijkstra
-def dijkstra(grid, start, goal, ntype = 4):
+def dijkstra(grid, start, goal, ntype = 4, trace = False):
     rows, cols = grid.shape
-    frontier = queue.PriorityQueue()
+    frontier = PriorityQueue()
     frontier.put(start, 0)
     came_from = {}
     cost_so_far = {}
     came_from[start] = None
     cost_so_far[start] = 0
 
+    if trace:
+        tgrid = grid.copy()
+    else:
+        tgrid = None
+
     # Explore
     while not frontier.empty():
         current = frontier.get()
+        if trace:
+            tgrid[current] = 0.25
+
         # Check if goal
         if current == goal:
             break
@@ -149,7 +170,7 @@ def dijkstra(grid, start, goal, ntype = 4):
                 continue
             if grid[next] != 0:
                 continue
-            new_cost = cost_so_far[current] + pow((pow(next[0] - current[0], 2) + pow(next[1] - current[1], 2)), 0.5)
+            new_cost = cost_so_far[current] + distance.euclidean(next, current)
             update = False
             if next not in cost_so_far:
                 update = True
@@ -161,40 +182,54 @@ def dijkstra(grid, start, goal, ntype = 4):
                 priority = new_cost
                 frontier.put(next, priority)
                 came_from[next] = current
+
     # Reconstruct path
     current = goal
     path = []
     while current != start:
+        if trace:
+            tgrid[current] = 0.5
         path.append(current)
         current = came_from[current]
+    if trace:
+        tgrid[start] = 0.5
     path.append(start)
     path.reverse()
-    return path
+
+    return path, tgrid
 
 # A*
-def astar(grid, start, goal, ntype = 4):
+def astar(grid, start, goal, ntype = 4, trace = False):
     rows, cols = grid.shape
-    frontier = queue.PriorityQueue()
+    frontier = PriorityQueue()
     frontier.put(start, 0)
     came_from = {}
     cost_so_far = {}
     came_from[start] = None
     cost_so_far[start] = 0
 
+    if trace:
+        tgrid = grid.copy()
+    else:
+        tgrid = None
+
     # Explore
     while not frontier.empty():
         current = frontier.get()
+        if trace:
+            tgrid[current] = 0.25
         # Check if goal
         if current == goal:
             break
         # Add suitable neighbors
         neighbors = getNeighbors(current, rows, cols, grid, ntype)
+
         for next in neighbors:
             if next[0] < 0 or next[1] < 0 or next[0] >= rows or next[1] >= cols:
                 continue
             if grid[next] != 0:
                 continue
-            new_cost = cost_so_far[current] + pow((pow(next[0] - current[0], 2) + pow(next[1] - current[1], 2)), 0.5)
+            new_cost = cost_so_far[current] + distance.euclidean(current, next)
             update = False
             if next not in cost_so_far:
                 update = True
@@ -203,22 +238,28 @@ def astar(grid, start, goal, ntype = 4):
                     update = True
             if update:
                 cost_so_far[next] = new_cost
-                priority = new_cost + pow((pow(next[0] - goal[0], 2) + pow(next[1] - goal[1], 2)), 0.5)
+                priority = new_cost + distance.euclidean(next, goal)
                 frontier.put(next, priority)
                 came_from[next] = current
+
     # Reconstruct path
     current = goal
     path = []
     while current != start:
+        if trace:
+            tgrid[current] = 0.5
         path.append(current)
         current = came_from[current]
+    if trace:
+        tgrid[start] = 0.5
     path.append(start)
     path.reverse()
-    return path
+
+    return path, tgrid
 
 
-def selectNeighborRules(nhoodType = "4"):
-    if nhoodType == "4":
+def selectNeighborRules(ntype = "4"):
+    if ntype == "4":
         return [(-1, 0), (1, 0), (0, -1), (0, 1)]
 
 
@@ -240,12 +281,15 @@ def main():
     parser.add_option(      "--dy",
                       help = "Goal location row.",
                       default = 29)
-    parser.add_option(      "--nhood_type",
+    parser.add_option("-n", "--nhood_type",
                       help = "Neighborhood type (4, 8, or 16).",
                       default = 4)
     parser.add_option(      "--solver",
                       help = "Path finding algorithm (A*, dijkstra).",
                       default = "dijkstra")
+    parser.add_option(      "--trace",
+                      help = "Path to save map of solver's history. Shows which cells were evaluated.",
+                      default = None)
 
     (options, args) = parser.parse_args()
 
@@ -253,17 +297,23 @@ def main():
     start = (int(options.sy), int(options.sx))
     goal = (int(options.dy), int(options.dx))
     solver = options.solver.lower()
-    nhoodType = int(options.nhood_type)
-    if nhoodType != 4 and nhoodType != 8 and nhoodType != 16:
-        print("Invalid neighborhood type {}".format(nhoodType))
+    ntype = int(options.nhood_type)
+    if ntype != 4 and ntype != 8 and ntype != 16:
+        print("Invalid neighborhood type {}".format(ntype))
         exit(-1)
+    trace = False
+    traceOutFile = options.trace
+    if options.trace is not None:
+        trace = True
 
     # Load occupancy grid from comma-delimited ASCII file
     grid = np.loadtxt(gridFile, delimiter = ",")
+    # Binarize grid
+    grid[grid > 0] = 1
     rows, cols = grid.shape
 
     print("Using {r}x{c} grid {g}".format(r = rows, c = cols, g = gridFile))
-    print("Using {n}-way neighborhood".format(n = nhoodType))
+    print("Using {n}-way neighborhood".format(n = ntype))
     print("  Start:", start)
     print("  End:", goal)
 
@@ -271,13 +321,19 @@ def main():
     t0 = time.time()
 
     if solver == "a*":
-        path = astar(grid, start, goal, nhoodType)
+        path, traceGrid = astar(grid, start, goal, ntype = ntype, trace = trace)
     else:  # Default to dijkstra
         solver = "dijkstra"
-        path = dijkstra(grid, start, goal, nhoodType)
-
+        path, traceGrid = dijkstra(grid, start, goal, ntype = ntype, trace = trace)
     t1 = time.time()
     print("Done solving with {s}, {t} seconds".format(s = solver, t = t1 - t0))
+
+
+    # Visualize
+    # Trace solver
+    if trace:
+        plt.imshow(traceGrid, cmap = "Greys")
+        plt.show()
 
 if __name__ == '__main__':
     main()

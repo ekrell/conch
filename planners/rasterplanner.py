@@ -32,32 +32,41 @@ def grid2world (row, col, transform, nrow):
 
 parser = OptionParser()
 parser.add_option("-r", "--region",
-                  help = "Path to raster containing binary occupancy region (1 -> obstacle, 0 -> free)",
+                  help = "Path to raster containing binary occupancy region (1 -> obstacle, 0 -> free).",
                   default = "test/full.tif")
+parser.add_option("-m", "--map",
+                  help = "Path to save solution path map.",
+                  default = None)
+parser.add_option("-p", "--path",
+                  help = "Path to save solution path.",
+                  default = "test/rasterplan.txt")
 parser.add_option("--sx",
                    help = "Start longitude.",
-                   default = -70.92)
+                   default = -70.9318)
 parser.add_option("--sy",
                    help = "Start latitude.",
-                   default = 42.29)
+                   default = 42.3249)
 parser.add_option("--dx",
                    help = "Destination longitude.",
-                   default = -70.96)
+                   default = -70.9250)
 parser.add_option("--dy",
                    help = "Destination latitude.",
-                   default = 42.30)
+                   default = 42.2792)
 parser.add_option("--solver",
                    help = "Path finding algorithm (A*, dijkstra).",
                    default = "dijkstra")
-parser.add_option(      "--nhood_type",
+parser.add_option("-n", "--nhood_type",
                    help = "Neighborhood type (4, 8, or 16).",
                    default = 4)
+parser.add_option(      "--trace",
+                   help = "Path to save map of solver's history. Shows which cells were evaluated.",
+                   default = None)
 
 (options, args) = parser.parse_args()
 
-print(options)
-
 regionRasterFile = options.region
+mapOutFile = options.map
+pathOutFile = options.path
 startPoint = (float(options.sy), float(options.sx))
 endPoint = (float(options.dy), float(options.dx))
 solver = options.solver.lower()
@@ -65,6 +74,10 @@ nhoodType = int(options.nhood_type)
 if nhoodType != 4 and nhoodType != 8 and nhoodType != 16:
     print("Invalid neighborhood type {}".format(nhoodType))
     exit(-1)
+trace = False
+traceOutFile = options.trace
+if options.trace is not None:
+    trace = True
 
 # Read region raster
 regionData = gdal.Open(regionRasterFile)
@@ -86,14 +99,15 @@ end = world2grid(endPoint[0], endPoint[1], regionTransform, regionExtent["rows"]
 t0 = time.time()
 
 if solver == "a*":
-    path = gridplanner.astar(grid, start, end, ntype = nhoodType)
+    path, traceGrid = gridplanner.astar(grid, start, end, ntype = nhoodType, trace = trace)
 else:  # Default to dijkstra
     solver = "dijkstra"
-    path = gridplanner.dijkstra(grid, start, end, ntype = nhoodType)
+    path, traceGrid = gridplanner.dijkstra(grid, start, end, ntype = nhoodType, trace = trace)
 t1 = time.time()
 print("Done solving with {s}, {t} seconds".format(s = solver, t = t1 - t0))
 
 # Stat path
+numWaypoints = len(path)
 path_distance = 0
 prev_point = path[0]
 for point in path[1:]:
@@ -107,13 +121,33 @@ print('    Distance: {:.4f} km'.format(path_distance))
 #print('    Duration: {:.4f} min'.format(path_duration))
 #print('    Cost: {:.4f}'.format(C))
 
-print(path)
+
+# Visualize
+# Plot trace of solver
+if trace:
+    plt.imshow(traceGrid, cmap = "Greys")
+    plt.savefig(traceOutFile)
+
+# Plot solution path
+if mapOutFile is not None:
+    lats = np.zeros(numWaypoints)
+    lons = np.zeros(numWaypoints)
+    for i in range(numWaypoints):
+        lats[i] = path[i][0]
+        lons[i] = path[i][1]
+
+    fig, ax = plt.subplots(nrows=1, ncols=1)
+    ax.set_ylim(0, regionExtent["rows"])
+    ax.set_xlim(0, regionExtent["cols"])
+    ax.set_facecolor('xkcd:lightblue')
+    # Plot raster
+    plt.imshow(grid, cmap=plt.get_cmap('gray'))
+    plt.plot(lons, lats)
+
+    ax.set_ylim(ax.get_ylim()[::-1])
+    plt.savefig(mapOutFile)
 
 
-
-
-
-
-
-
-
+# Write path
+if pathOutFile is not None:
+    np.savetxt(pathOutFile, path, delimiter = ",", fmt = "%d")
