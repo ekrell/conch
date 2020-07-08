@@ -1,0 +1,10 @@
+Using input region raster: test/full.tif
+      input graph file: test/uni-4.pickle
+  Start: (42.32343, -70.99428)
+    End: (42.336, -70.88737)
+571121
+Done solving with dijkstra, 6.613306760787964 seconds
+Planning results (no currents):
+    Distance: 10.1854 km
+    Duration: 33.9513 min
+    Cost: 896.0000

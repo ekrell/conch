@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from optparse import OptionParser
 from osgeo import gdal
 from haversine import haversine
+import osgeo.gdalnumeric as gdn
 import time
 
 import gridplanner
@@ -30,10 +31,24 @@ def grid2world (row, col, transform, nrow):
     lat = transform[4] * col + transform[5] * row + transform[3]
     return (lat, lon)
 
+def raster2array(raster, dim_ordering="channels_last", dtype='float32'):
+    '''
+    Modified from: https://gis.stackexchange.com/a/283207
+    '''
+    bands = [raster.GetRasterBand(i) for i in range(1, raster.RasterCount + 1)]
+    arr = np.array([gdn.BandReadAsArray(band) for band in bands]).astype(dtype)
+    return arr
+
 parser = OptionParser()
 parser.add_option("-r", "--region",
                   help = "Path to raster containing binary occupancy region (1 -> obstacle, 0 -> free).",
                   default = "test/full.tif")
+parser.add_option("-u", "--currents_mag",
+                  help = "Path to grid with magnitude of water velocity.",
+                  default = None)
+parser.add_option("-v", "--currents_dir",
+                  help = "Path to grid with direction of water velocity.",
+                  default = None)
 parser.add_option("-m", "--map",
                   help = "Path to save solution path map.",
                   default = None)
@@ -61,10 +76,15 @@ parser.add_option("-n", "--nhood_type",
 parser.add_option(      "--trace",
                    help = "Path to save map of solver's history. Shows which cells were evaluated.",
                    default = None)
+parser.add_option(      "--speed",
+                  help = "Target boat speed (meters/second).",
+                  default = 0.5)
 
 (options, args) = parser.parse_args()
 
 regionRasterFile = options.region
+currentsRasterFile_u = options.currents_mag
+currentsRasterFile_v = options.currents_dir
 mapOutFile = options.map
 pathOutFile = options.path
 startPoint = (float(options.sy), float(options.sx))
@@ -78,6 +98,7 @@ trace = False
 traceOutFile = options.trace
 if options.trace is not None:
     trace = True
+targetSpeed_mps = float(options.speed)
 
 # Read region raster
 regionData = gdal.Open(regionRasterFile)
@@ -91,18 +112,73 @@ print("Using {n}-way neighborhood".format(n = nhoodType))
 print("  Start:", startPoint)
 print("  End:", endPoint)
 
+# Read currents rasters
+elapsedTime = 0
+bandIndex = 0
+usingCurrents = False
+if currentsRasterFile_u is not None and currentsRasterFile_v is not None:
+    usingCurrents = True
+    bandIndex = 1
+
+    # Load u components
+    currentsData_u = gdal.Open(currentsRasterFile_u)
+    currentsExtent_u = getGridExtent(currentsData_u)
+    currentsTransform_u = currentsData_u.GetGeoTransform()
+    currentsGrid_u = raster2array(currentsData_u)
+
+    # Load v components
+    currentsData_v = gdal.Open(currentsRasterFile_v)
+    currentsExtent_v = getGridExtent(currentsData_v)
+    currentsTransform_v = currentsData_v.GetGeoTransform()
+    currentsGrid_v = raster2array(currentsData_v)
+
+    # Sanity check that the current u, v rasters match
+    if currentsExtent_u["rows"] != currentsExtent_v["rows"] or \
+            currentsExtent_u["cols"] != currentsExtent_v["cols"]:
+        print("[-] Spatial extent mismatch between currents u, v")
+        exit(-1)
+    if currentsData_u.RasterCount != currentsData_v.RasterCount:
+        print("[-] Band count mismatch between currents u, v")
+        exit(-1)
+
+    # If single-band, make multi-band (with 1)
+    if len(currentsGrid_u.shape) == 2:
+        cu = np.zeros((1, currentsGrid_u.shape[0], currentsGrid_u.shape[1]))
+        cu[0] = currentsGrid_u.copy()
+        currentsGrid_u = cu.copy()
+        cv = np.zeros((1, currentsGrid_v.shape[0], currentsGrid_v.shape[1]))
+        cv[0] = currentsGrid_v.copy()
+        currentsGrid_v = cv
+
+    print("Incorporating forces into energy cost:")
+    print("  magnitude: {}".format(currentsRasterFile_u))
+    print("  direction: {}".format(currentsRasterFile_v))
+
 # Convert latlon -> rowcol
 start = world2grid(startPoint[0], startPoint[1], regionTransform, regionExtent["rows"])
 end = world2grid(endPoint[0], endPoint[1], regionTransform, regionExtent["rows"])
 
+# Calculate pixel distance
+s = grid2world(0, 0, regionTransform, regionExtent["rows"])
+e = grid2world(0, regionExtent["cols"] - 1, regionTransform, regionExtent["rows"])
+dist_m = haversine(s, e) * 100
+dist = pow((pow(0, 2) + pow(regionExtent["cols"], 2)), 0.5)
+pixelsize_m = dist_m / dist
+
+if solver == "a*" or solver == "astar":
+    solver_id = 1
+else:
+    # Default solver to dijkstra
+    solver = "dijkstra"
+    solver_id = 0
+
 # Solve
 t0 = time.time()
-
-if solver == "a*":
-    path, traceGrid = gridplanner.astar(grid, start, end, ntype = nhoodType, trace = trace)
-else:  # Default to dijkstra
-    solver = "dijkstra"
-    path, traceGrid = gridplanner.dijkstra(grid, start, end, ntype = nhoodType, trace = trace)
+if usingCurrents:
+    path, traceGrid, C, T = gridplanner.solve(grid, start, end, solver = solver_id, ntype = nhoodType, trace = trace,
+            currentsGrid_u = currentsGrid_u, currentsGrid_v = currentsGrid_v, targetSpeed_mps = targetSpeed_mps, pixelsize_m = pixelsize_m)
+else:
+    path, traceGrid, C, T = gridplanner.solve(grid, start, end, solver = solver_id, ntype = nhoodType, trace = trace, pixelsize_m = pixelsize_m)
 t1 = time.time()
 print("Done solving with {s}, {t} seconds".format(s = solver, t = t1 - t0))
 
@@ -115,11 +191,12 @@ for point in path[1:]:
     point_latlon = grid2world(point[0], point[1], regionTransform, regionExtent["rows"])
     path_distance += haversine(prev_latlon, point_latlon)
     prev_point = point
-#path_duration = (path_distance / (targetSpeed_mps / 100)) / 60
+path_duration = (path_distance / (targetSpeed_mps / 100)) / 60
 
+print(T / 60)
 print('    Distance: {:.4f} km'.format(path_distance))
-#print('    Duration: {:.4f} min'.format(path_duration))
-#print('    Cost: {:.4f}'.format(C))
+print('    Duration: {:.4f} min'.format(path_duration))
+print('    Cost: {:.4f}'.format(C))
 
 
 # Visualize

@@ -1,0 +1,10 @@
+Using input region raster: test/full.tif
+      input graph file: test/uni-8.pickle
+  Start: (42.32343, -70.99428)
+    End: (42.336, -70.88737)
+627421
+Done solving with a.png, 11.309452056884766 seconds
+Planning results (no currents):
+    Distance: 9.5239 km
+    Duration: 31.7463 min
+    Cost: 843.2792

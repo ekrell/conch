@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from optparse import OptionParser
 import dill as pickle
-from heapq import heapify, heappush, heappop
+import heapq
 from osgeo import gdal
 from math import acos, cos, sin, ceil, floor
 from bresenham import bresenham
@@ -50,7 +50,7 @@ def raster2array(raster, dim_ordering="channels_last", dtype='float32'):
     arr = np.array([gdn.BandReadAsArray(band) for band in bands]).astype(dtype)
     return arr
 
-def calcWork(v, w, currentsGrid_u, currentsGrid_v, targetSpeed_mps, timeIn = 0, interval = 3600):
+def calcWork(v, w, currentsGrid_u, currentsGrid_v, targetSpeed_mps, timeIn = 0, interval = 3600, pixelsize_m = 1):
     '''
     This function calculates the work applied by a vehicle
     between two points, given rasters with u, v force components
@@ -77,13 +77,9 @@ def calcWork(v, w, currentsGrid_u, currentsGrid_v, targetSpeed_mps, timeIn = 0, 
            costheta = dotprod / maga
            heading_rad = acos(costheta)
 
-       # Distance
-       distance = pow((pow(v[0] - w[0], 2) + pow(v[1] - w[1], 2)), 0.5)
-
        # Work
        work = 0
        b = list(bresenham(v[0], v[1], w[0], w[1]))
-       pixeldist = distance / (len(b) -1)
 
        for p in b[1:]: # Skip first pixel -> already there!
             xA = targetSpeed_mps * cos(heading_rad)
@@ -109,10 +105,10 @@ def calcWork(v, w, currentsGrid_u, currentsGrid_v, targetSpeed_mps, timeIn = 0, 
                 costheta = dotprod / magaDV
                 dirDV = acos(costheta)
 
-            work += magaDV * pixeldist
+            work += magaDV * pixelsize_m
 
             # Update time
-            elapsed += pixeldist / targetSpeed_mps
+            elapsed += pixelsize_m / targetSpeed_mps
             (index, rem) = divmod(elapsed, interval)
             index = floor(index)
     else:
@@ -120,19 +116,17 @@ def calcWork(v, w, currentsGrid_u, currentsGrid_v, targetSpeed_mps, timeIn = 0, 
 
     return work
 
-
-def astar(graph, origin, destination, regionTransform = None,
+def solve(graph, origin, destination, solver = 0,
         currentsGrid_u = None, currentsGrid_v = None, currentsTransform = None, currentsExtent = None,
-        targetSpeed_mps = 100, timeOffset = 0):
+        targetSpeed_mps = 100, timeOffset = 0, pixelsize_m = 1):
 
-    """
-    A* search algorithm, using Euclidean distance heuristic
-    Note that this is a modified version of an
-    A* implementation by Amit Patel.
-    https://www.redblobgames.com/pathfinding/a-star/implementation.html
-    """
-    frontier = priority_dict()
-    frontier[origin] = 0
+    solvers = ["dijkstra", "astar"]
+    if solver >= len(solvers):
+        print("Invalid solver ID {}".format(solver_id))
+        exit(-1)
+
+    frontier = PriorityQueue()
+    frontier.put(origin, 0)
     cameFrom = {}
     costSoFar = {}
     timeSoFar = {}
@@ -140,179 +134,65 @@ def astar(graph, origin, destination, regionTransform = None,
     costSoFar[origin] = 0
     timeSoFar[origin] = timeOffset
 
-    while len(frontier) > 0:
-        v = frontier.pop_smallest()
-        if v == destination:
-            break
+    trace = []
+    while not frontier.empty():
+        v = frontier.get()
+        trace.append(v)
 
-        # Need latlon IF considering water currents
-        v_latlon = grid2world(v[0], v[1], regionTransform, regionExtent["rows"])
-        dest_latlon = grid2world(destination[0], destination[1],
-                regionTransform, regionExtent["rows"])
-
-        if currentsTransform is not None:
-            v_currents = world2grid(v_latlon[0], v_latlon[1],
-                    currentsTransform, currentsExtent["rows"])
-
-        try:
-            edges = graph[v]
-        except:
-            continue
-        for w in edges:
-            w_latlon = grid2world(w[0], w[1], regionTransform, regionExtent["rows"])
-            # No currents --> cost = distance
-            if currentsGrid_u is None:
-                cost = pow((pow(v[0] - w[0], 2) + pow(v[1] - w[1], 2)), 0.5)
-            # Currents --> cost = energy expended
-            else:
-                # Find corresponding coordinates in currents rasters
-                w_currents = world2grid(w_latlon[0], w_latlon[1],
-                        currentsTransform, currentsExtent_u["rows"])
-                # Calculate work applied by vehicle along edge
-                cost = calcWork(v_currents, w_currents, currentsGrid_u, currentsGrid_v,
-                        targetSpeed_mps, timeIn = timeSoFar[v])
-
-            new_cost = costSoFar[v] + cost
-            if w not in costSoFar or new_cost < costSoFar[w]:
-                # Apply heuristic
-                heuristic = pow((pow(w[0] - destination[0], 2) + pow(w[1] - destination[1], 2)), 0.5)
-                heuristic = haversine(w_latlon, dest_latlon)
-                costSoFar[w] = new_cost
-
-                # Estimated duration to reach this point
-                dist = haversine(v_latlon, w_latlon)
-                timeSoFar[w] = timeSoFar[v] + (dist / targetSpeed_mps)
-
-                priority = new_cost + dist
-                frontier[w] = priority
-                cameFrom[w] = v
-
-
-    return (frontier, cameFrom, costSoFar[v], timeSoFar[v])
-
-
-def dijkstra(graph, origin, destination,  regionTransform,
-        currentsGrid_u = None, currentsGrid_v = None, currentsTransform = None, currentsExtent = None,
-        targetSpeed_mps = 100, timeOffset = 0):
-
-    D = {}
-    P = {}
-    timeSoFar = {}
-    Q = priority_dict()
-    Q[origin] = 0
-    timeSoFar[origin] = timeOffset
-
-    dest_latlon = grid2world(destination[0], destination[1],
-            regionTransform, regionExtent["rows"])
-
-    for v in Q:
-        D[v] = Q[v]
         if v == destination: break
 
-        v_latlon = grid2world(v[0], v[1], regionTransform, regionExtent["rows"])
-
-        # Need latlon IF considering water currents
-        if currentsGrid_u is not None:
-            v_currents = world2grid(v_latlon[0], v_latlon[1],
-                    currentsTransform, currentsExtent_u["rows"])
-
         try:
             edges = graph[v]
         except:
             continue
 
         for w in edges:
-            w_latlon = grid2world(w[0], w[1], regionTransform, regionExtent["rows"])
-
+            dist = pow((pow(v[0] - w[0], 2) + pow(v[1] - w[1], 2)), 0.5) * pixelsize_m
             # No currents --> cost = distance
             if currentsGrid_u is None:
-                dcost = pow((pow(v[0] - w[0], 2) + pow(v[1] - w[1], 2)), 0.5)
+                new_cost = costSoFar[v] + dist
             # Currents --> cost = energy expended
             else:
-                # Find corresponding coordinates in currents rasters
-                w_currents = world2grid(w_latlon[0], w_latlon[1],
-                        currentsTransform, currentsExtent_u["rows"])
-                dcost = calcWork(v_currents, w_currents, currentsGrid_u, currentsGrid_v,
-                        targetSpeed_mps, timeIn = timeSoFar[v])
-            # Add up cost
-            cost = D[v] + dcost
+                new_cost = costSoFar[v] + calcWork(v, w, currentsGrid_u, currentsGrid_v,
+                        targetSpeed_mps, timeIn = timeSoFar[v], pixelsize_m = pixelsize_m)
 
-            if w in D:
-                if cost < D[w]:
-                    raise ValueError
-            elif w not in Q or cost < Q[w]:
-                Q[w] = cost
-                P[w] = v
+            update = False
+            if w not in costSoFar:
+                update = True
+            else:
+                if new_cost < costSoFar[w]:
+                    update = True
 
-                timeSoFar[w] = timeSoFar[v] + haversine(v_latlon, w_latlon)
+            if update:
+                costSoFar[w] = new_cost
+                if solver == 1: # A*
+                    priority = new_cost + pow((pow(w[0] - destination[0], 2) + pow(w[1] - destination[1], 2)), 0.5)
+                else:           # Default: dijkstra
+                    priority = new_cost
 
+                frontier.put(w, priority)
+                cameFrom[w] = v
+                timeSoFar[w] = timeSoFar[v]  + (dist / targetSpeed_mps)
 
-    return (D, P, Q[v], timeSoFar[v])
+    import matplotlib.pyplot as plt
+    y, x = zip(*trace)
+    plt.scatter(x, y, c = 'powderblue', marker = '.')
+    plt.scatter(origin[1], origin[0], c = 'firebrick', marker = 'X')
+    plt.scatter(destination[1], destination[0], c = 'firebrick', marker = 'X')
+    plt.show()
 
-class priority_dict(dict):
-    """Dictionary that can be used as a priority queue.
+    return (costSoFar, cameFrom, costSoFar[destination], timeSoFar[destination])
 
-    Keys of the dictionary are items to be put into the queue, and values
-    are their respective priorities. All dictionary methods work as expected.
-    The advantage over a standard heapq-based priority queue is that priorities
-    of items can be efficiently updated (amortized O(1)) using code as
-    'thedict[item] = new_priority.'
-
-    Note that this is a modified version of
-    https://gist.github.com/matteodellamico/4451520 where sorted_iter() has
-    been replaced with the destructive sorted iterator __iter__ from
-    https://gist.github.com/anonymous/4435950
-    """
-    def __init__(self, *args, **kwargs):
-        super(priority_dict, self).__init__(*args, **kwargs)
-        self._rebuild_heap()
-
-    def _rebuild_heap(self):
-        self._heap = [(v, k) for k, v in iteritems(self)]
-        heapify(self._heap)
-
-    def smallest(self):
-        heap = self._heap
-        v, k = heap[0]
-        while k not in self or self[k] != v:
-            heappop(heap)
-            v, k = heap[0]
-        return k
-
-    def pop_smallest(self):
-        heap = self._heap
-        v, k = heappop(heap)
-        while k not in self or self[k] != v:
-            v, k = heappop(heap)
-        del self[k]
-        return k
-
-    def __setitem__(self, key, val):
-        super(priority_dict, self).__setitem__(key, val)
-
-        if len(self._heap) < 2 * len(self):
-            heappush(self._heap, (val, key))
-        else:
-            self._rebuild_heap()
-
-    def setdefault(self, key, val):
-        if key not in self:
-            self[key] = val
-            return val
-        return self[key]
-
-    def update(self, *args, **kwargs):
-        super(priority_dict, self).update(*args, **kwargs)
-        self._rebuild_heap()
-
-    def __iter__(self):
-        def iterfn():
-            while len(self) > 0:
-                x = self.smallest()
-                yield x
-                del self[x]
-        return iterfn()
-
+class PriorityQueue:
+    # Source: https://www.redblobgames.com/pathfinding/a-star/implementation.html
+    def __init__(self):
+        self.elements = []
+    def empty(self):
+        return len(self.elements) == 0
+    def put(self, item, priority):
+        heapq.heappush(self.elements, (priority, item))
+    def get(self):
+        return heapq.heappop(self.elements)[1]
 
 ###########
 # Options #
@@ -421,22 +301,28 @@ graph = pickle.load(open(graphFile, 'rb'))
 start = world2grid(startPoint[0], startPoint[1], regionTransform, regionExtent["rows"])
 end = world2grid(endPoint[0], endPoint[1], regionTransform, regionExtent["rows"])
 
-# solve
+# Calculate pixel distance
+s = grid2world(0, 0, regionTransform, regionExtent["rows"])
+e = grid2world(0, regionExtent["cols"] - 1, regionTransform, regionExtent["rows"])
+dist_m = haversine(s, e) * 100
+dist = pow((pow(0, 2) + pow(regionExtent["cols"], 2)), 0.5)
+pixelsize_m = dist_m / dist
+
+if solver == "a*" or solver == "astar":
+    solver_id = 1
+else:
+    # Default solver to dijkstra
+    solver = "dijkstra"
+    solver_id = 0
+
+# Solve
 t0 = time.time()
 if usingCurrents:   # Solve with current forces --> energy cost
-    if solver == "a*":
-        D, P, C, T = astar(graph, start, end, regionTransform,
+        D, P, C, T = solve(graph, start, end, solver_id,
                 currentsGrid_u, currentsGrid_v, currentsTransform_u, currentsExtent_u,
-                targetSpeed_mps)
-    else:  # Default to dijkstra
-        D, P, C, T = dijkstra(graph, start, end,
-                regionTransform, currentsGrid_u, currentsGrid_v, currentsTransform_u, currentsExtent_u,
-                    targetSpeed_mps)
+                targetSpeed_mps, pixelsize_m = pixelsize_m)
 else:   # Default to distance-based
-    if solver == "a*":
-        D, P, C, T = astar(graph, start, end, regionTransform)
-    else:  # Default to dijkstra
-        D, P, C, T = dijkstra(graph, start, end, regionTransform)
+        D, P, C, T = solve(graph, start, end, solver_id, pixelsize_m = pixelsize_m)
 t1 = time.time()
 print("Done solving with {}, {} seconds".format(solver, t1-t0))
 

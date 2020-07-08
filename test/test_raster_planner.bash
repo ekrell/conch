@@ -1,4 +1,3 @@
-
 PREFIX="python3 planners/rasterplanner.py -r test/full.tif"
 DIR="test/rasterplanner/"
 

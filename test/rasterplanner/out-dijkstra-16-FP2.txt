@@ -2,5 +2,5 @@ Using 1134x1259 grid test/full.tif
 Using 16-way neighborhood
   Start: (42.33283, -70.97322)
   End: (42.27184, -70.903406)
-Done solving with dijkstra, 188.26630806922913 seconds
+Done solving with dijkstra, 25.60828924179077 seconds
     Distance: 9.4468 km

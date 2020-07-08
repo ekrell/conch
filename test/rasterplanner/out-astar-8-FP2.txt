@@ -2,5 +2,5 @@ Using 1134x1259 grid test/full.tif
 Using 8-way neighborhood
   Start: (42.33283, -70.97322)
   End: (42.27184, -70.903406)
-Done solving with a*, 11.95171046257019 seconds
+Done solving with a*, 1.7201449871063232 seconds
     Distance: 9.5883 km
