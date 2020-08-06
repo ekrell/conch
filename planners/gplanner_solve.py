@@ -174,12 +174,13 @@ def solve(graph, origin, destination, solver = 0,
                 cameFrom[w] = v
                 timeSoFar[w] = timeSoFar[v]  + (dist / targetSpeed_mps)
 
-    import matplotlib.pyplot as plt
-    y, x = zip(*trace)
-    plt.scatter(x, y, c = 'powderblue', marker = '.')
-    plt.scatter(origin[1], origin[0], c = 'firebrick', marker = 'X')
-    plt.scatter(destination[1], destination[0], c = 'firebrick', marker = 'X')
-    plt.show()
+    # Plot trace
+    #import matplotlib.pyplot as plt
+    #y, x = zip(*trace)
+    #plt.scatter(x, y, c = 'powderblue', marker = '.')
+    #plt.scatter(origin[1], origin[0], c = 'firebrick', marker = 'X')
+    #plt.scatter(destination[1], destination[0], c = 'firebrick', marker = 'X')
+    #plt.show()
 
     return (costSoFar, cameFrom, costSoFar[destination], timeSoFar[destination])
 
@@ -252,7 +253,8 @@ targetSpeed_mps = float(options.speed)
 print("Using input region raster: {}".format(regionRasterFile))
 print("      input graph file: {}".format(graphFile))
 print("  Start:", startPoint)
-print("    End:", endPoint)
+print("  End:", endPoint)
+print("  Speed: {} m/s".format(targetSpeed_mps))
 
 
 # Load raster
@@ -343,6 +345,7 @@ for point in path[1:]:
     prev_point = point
 path_duration = (path_distance / (targetSpeed_mps / 100)) / 60
 
+print(T)
 if usingCurrents:
     print("Planning results (with currents):")
 else:

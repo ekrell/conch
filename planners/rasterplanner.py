@@ -79,7 +79,12 @@ parser.add_option(      "--trace",
 parser.add_option(      "--speed",
                   help = "Target boat speed (meters/second).",
                   default = 0.5)
-
+parser.add_option(      "--statpath",
+                  help = "Path to list of waypoints to print path information. Will not solve.",
+                  default = None)
+parser.add_option(     "--dist_measure",
+                  help = "Which distance measurement to use (haversine, euclidean, or euclidean-scaled).",
+                  default = "haversine")
 (options, args) = parser.parse_args()
 
 regionRasterFile = options.region
@@ -94,11 +99,15 @@ nhoodType = int(options.nhood_type)
 if nhoodType != 4 and nhoodType != 8 and nhoodType != 16:
     print("Invalid neighborhood type {}".format(nhoodType))
     exit(-1)
+distMeasure = options.dist_measure
+if distMeasure not in ["haversine", "euclidean", "euclidean-scaled"]:
+    distMeasure = "haversine"
 trace = False
 traceOutFile = options.trace
 if options.trace is not None:
     trace = True
 targetSpeed_mps = float(options.speed)
+statPathFile = options.statpath
 
 # Read region raster
 regionData = gdal.Open(regionRasterFile)
@@ -111,6 +120,8 @@ print("Using {r}x{c} grid {g}".format(r = rows, c = cols, g = regionRasterFile))
 print("Using {n}-way neighborhood".format(n = nhoodType))
 print("  Start:", startPoint)
 print("  End:", endPoint)
+print("  Speed: {} m/s".format(targetSpeed_mps))
+print("  Distance measurement: {d}".format(d = distMeasure))
 
 # Read currents rasters
 elapsedTime = 0
@@ -160,10 +171,10 @@ end = world2grid(endPoint[0], endPoint[1], regionTransform, regionExtent["rows"]
 
 # Calculate pixel distance
 s = grid2world(0, 0, regionTransform, regionExtent["rows"])
-e = grid2world(0, regionExtent["cols"] - 1, regionTransform, regionExtent["rows"])
-dist_m = haversine(s, e) * 100
-dist = pow((pow(0, 2) + pow(regionExtent["cols"], 2)), 0.5)
-pixelsize_m = dist_m / dist
+e = grid2world(0, 1, regionTransform, regionExtent["rows"])
+dist_m = haversine(s, e) * 1000
+pixelsize_m = dist_m
+print(pixelsize_m)
 
 if solver == "a*" or solver == "astar":
     solver_id = 1
@@ -172,15 +183,23 @@ else:
     solver = "dijkstra"
     solver_id = 0
 
-# Solve
-t0 = time.time()
-if usingCurrents:
-    path, traceGrid, C, T = gridplanner.solve(grid, start, end, solver = solver_id, ntype = nhoodType, trace = trace,
-            currentsGrid_u = currentsGrid_u, currentsGrid_v = currentsGrid_v, targetSpeed_mps = targetSpeed_mps, pixelsize_m = pixelsize_m)
+if statPathFile is None:
+    # Solve
+    t0 = time.time()
+    if usingCurrents:
+        path, traceGrid, C, T = gridplanner.solve(grid, start, end, solver = solver_id, ntype = nhoodType, trace = trace,
+                currentsGrid_u = currentsGrid_u, currentsGrid_v = currentsGrid_v, geotransform = regionTransform,
+                targetSpeed_mps = targetSpeed_mps, pixelsize_m = pixelsize_m, distMeas = distMeasure)
+    else:
+        path, traceGrid, C, T = gridplanner.solve(grid, start, end, solver = solver_id, ntype = nhoodType, trace = trace,
+                targetSpeed_mps = targetSpeed_mps, pixelsize_m = pixelsize_m,
+                geotransform = regionTransform, distMeas = distMeasure)
+    t1 = time.time()
+    print("Done solving with {s}, {t} seconds".format(s = solver, t = t1 - t0))
 else:
-    path, traceGrid, C, T = gridplanner.solve(grid, start, end, solver = solver_id, ntype = nhoodType, trace = trace, pixelsize_m = pixelsize_m)
-t1 = time.time()
-print("Done solving with {s}, {t} seconds".format(s = solver, t = t1 - t0))
+    print("Stat of path file {f}".format(f = statPathFile))
+    path = [(int(p[0]), int(p[1])) for p in np.loadtxt(statPathFile, delimiter = ",")]
+    C, T = gridplanner.statPath(path, currentsGrid_u, currentsGrid_v, regionTransform, targetSpeed_mps, pixelsize_m = pixelsize_m)
 
 # Stat path
 numWaypoints = len(path)
@@ -191,12 +210,13 @@ for point in path[1:]:
     point_latlon = grid2world(point[0], point[1], regionTransform, regionExtent["rows"])
     path_distance += haversine(prev_latlon, point_latlon)
     prev_point = point
-path_duration = (path_distance / (targetSpeed_mps / 100)) / 60
+path_duration = (path_distance * 1000 / targetSpeed_mps) / 60
 
 print(T / 60)
 print('    Distance: {:.4f} km'.format(path_distance))
 print('    Duration: {:.4f} min'.format(path_duration))
-print('    Cost: {:.4f}'.format(C))
+if usingCurrents:
+    print('    Cost: {:.4f}'.format(C))
 
 
 # Visualize

@@ -9,6 +9,11 @@ from math import acos, cos, sin, ceil, floor
 from bresenham import bresenham
 from haversine import haversine
 
+def grid2world(row, col, transform, nrow):
+    lon = transform[1] * col + transform[2] * row + transform[0]
+    lat = transform[4] * col + transform[5] * row + transform[3]
+    return (lat, lon)
+
 class PriorityQueue:
     # Source: https://www.redblobgames.com/pathfinding/a-star/implementation.html
     def __init__(self):
@@ -139,7 +144,22 @@ def getNeighbors(i, m, n, env, ntype = 4):
                 B.append((i[0] + 1, i[1] + 2))
     return B
 
-def calcWork(v, w, currentsGrid_u, currentsGrid_v, targetSpeed_mps, timeIn = 0, interval = 3600, pixelsize_m = 1):
+def statPath(path, currentsGrid_u, currentsGrid_v, geotransform, targetSpeed_mps, timeIn = 0, interval = 3600, pixelsize_m = 1):
+    v = path[0]
+    n = len(path)
+
+    work = 0
+    elapsed = 0
+    for i in range(1, n):
+        w = path[i]
+        dw, elapsed = calcWork(v, w, currentsGrid_u, currentsGrid_v, targetSpeed_mps,
+                               geotransform = geotransform, timeIn = elapsed, interval = interval, pixelsize_m = pixelsize_m)
+        work += dw
+        v = w
+
+    return work, elapsed
+
+def calcWork(v, w, currentsGrid_u, currentsGrid_v, targetSpeed_mps, geotransform = None, timeIn = 0, interval = 3600, pixelsize_m = 1, distMeas = "haversine"):
     '''
     This function calculates the work applied by a vehicle
     between two points, given rasters with u, v force components
@@ -151,11 +171,11 @@ def calcWork(v, w, currentsGrid_u, currentsGrid_v, targetSpeed_mps, timeIn = 0, 
     currentsGrid_v: 3D Raster of forces v components.
         [time index, row, column] = v
     '''
-
     elapsed = float(timeIn)
     (index, rem) = divmod(elapsed, interval)
-    index = floor(index)
+    index = min(floor(index), currentsGrid_u.shape[0] - 2)
 
+    # Should use Euclidean distance on (row, col) or Haversine on (lat, lon)?
     if v != w:
         # Heading
         vecs = (w[1] - v[1], w[0] - v[0])
@@ -166,17 +186,28 @@ def calcWork(v, w, currentsGrid_u, currentsGrid_v, targetSpeed_mps, timeIn = 0, 
             costheta = dotprod / maga
             heading_rad = acos(costheta)
 
+        # Distance
+        rows = currentsGrid_u.shape[0]
+        if distMeas == "haversine":
+            v_latlon = grid2world(v[0], v[1], geotransform, rows)
+            w_latlon = grid2world(w[0], w[1], geotransform, rows)
+            hdist = haversine(v_latlon, w_latlon) * 1000
+        elif distMeas == "euclidean-scaled":
+            hdist = pow((pow(v[0] - w[0], 2) + pow(v[1] - w[1], 2)), 0.5) * pixelsize_m
+        elif distMeas == "euclidean":
+            hdist = pow((pow(v[0] - w[0], 2) + pow(v[1] - w[1], 2)), 0.5)
+
         # Work
         work = 0
         b = list(bresenham(v[0], v[1], w[0], w[1]))
+        hdist_ = hdist / len(b)
 
-        for p in b[1:]: # Skip first pixel -> already there!
+        for p in b[:]:
             xA = targetSpeed_mps * cos(heading_rad)
             yA = targetSpeed_mps * sin(heading_rad)
 
             #xB = currentsGrid_u[0, p[0], p[1]]
             #yB = currentsGrid_v[0, p[0], p[1]]
-
             # Interpolate between nearest time's currents
             if currentsGrid_u.shape[0] > 1:
                 cmag = currentsGrid_u[index, p[0] - 1, p[1] - 1] * (rem / interval) + \
@@ -187,12 +218,9 @@ def calcWork(v, w, currentsGrid_u, currentsGrid_v, targetSpeed_mps, timeIn = 0, 
                 # Static currents -> can't interpolate in time
                 cmag = currentsGrid_u[0, p[0] - 1, p[1] - 1]
                 cdir = currentsGrid_v[0, p[0] - 1, p[1] - 1]
-
             xB = cmag * cos(cdir)
             yB = cmag * sin(cdir)
-
             dV = (xB - xA, yB - yA)
-
             magaDV = pow(dV[0] * dV[0] + dV[1] * dV[1], 0.5)
             dirDV = 0.0
             dotprod = dV[0] * 1 + dV[1] * 0
@@ -200,21 +228,19 @@ def calcWork(v, w, currentsGrid_u, currentsGrid_v, targetSpeed_mps, timeIn = 0, 
                 costheta = dotprod / magaDV
                 dirDV = acos(costheta)
 
-            work += magaDV * pixelsize_m
+            work += magaDV * hdist_
 
             # Update time
-            elapsed += pixelsize_m / targetSpeed_mps
+            elapsed += hdist_ / targetSpeed_mps
             (index, rem) = divmod(elapsed, interval)
-            index = floor(index)
-
+            index = min(floor(index), currentsGrid_u.shape[0] - 2)
     else:
         work = 0
-
-    return work
+    return work, elapsed
 
 
 def solve(grid, start, goal, solver = 0, ntype = 4, trace = False,
-             currentsGrid_u = None, currentsGrid_v = None, targetSpeed_mps = 100, timeOffset = 0, pixelsize_m = 1):
+          currentsGrid_u = None, currentsGrid_v = None, geotransform = None, targetSpeed_mps = 100, timeOffset = 0, pixelsize_m = 1, distMeas = "haversine"):
 
     solvers = ["dijkstra", "astar"]
     if solver >= len(solvers):
@@ -235,9 +261,16 @@ def solve(grid, start, goal, solver = 0, ntype = 4, trace = False,
     if trace:
         tgrid = grid.copy()
 
+    if distMeas == "haversine":
+        # Lat, lon of goal
+        g_latlon = grid2world(goal[0], goal[1], geotransform, rows)
+
     # Explore
     while not frontier.empty():
         current = frontier.get()
+
+        if distMeas == "haversine":
+            c_latlon = grid2world(current[0], current[1], geotransform, rows)
 
         if trace:
             tgrid[current] = 0.25
@@ -254,15 +287,24 @@ def solve(grid, start, goal, solver = 0, ntype = 4, trace = False,
             if grid[next] != 0:
                 continue
 
-            dist = pow((pow(current[0] - next[0], 2) + pow(current[1] - next[1], 2)), 0.5) * pixelsize_m
+            if distMeas == "haversine":
+                n_latlon = grid2world(next[0], next[1], geotransform, rows)
+                dist = haversine(c_latlon, n_latlon) * 1000
+            elif distMeas == "euclidean-scaled":
+                dist = pow((pow(current[0] - next[0], 2) + pow(current[1] - next[1], 2)), 0.5) * pixelsize_m
+            elif distMeas == "euclidean":
+                dist = pow((pow(current[0] - next[0], 2) + pow(current[1] - next[1], 2)), 0.5)
+
             # Cost
             if currentsGrid_u is None:
+                et = time_so_far[current] + (dist / targetSpeed_mps)
                 # Distance cost
                 new_cost = cost_so_far[current] + dist
             else:
                 # Energy cost
-                new_cost = cost_so_far[current] + calcWork(current, next, currentsGrid_u, currentsGrid_v,
-                                    targetSpeed_mps, timeIn = time_so_far[current], pixelsize_m = pixelsize_m)
+                work, et = calcWork(current, next, currentsGrid_u, currentsGrid_v, targetSpeed_mps,
+                                    geotransform = geotransform, timeIn = time_so_far[current], pixelsize_m = pixelsize_m, distMeas = distMeas)
+                new_cost = cost_so_far[current] + work
 
             update = False
             if next not in cost_so_far:
@@ -273,13 +315,18 @@ def solve(grid, start, goal, solver = 0, ntype = 4, trace = False,
             if update:
                 cost_so_far[next] = new_cost
                 if solver == 1: # A*
-                    priority = new_cost + pow((pow(next[0] - goal[0], 2) + pow(next[1] - goal[1], 2)), 0.5)
+                    if distMeas == "haversine":
+                        priority = new_cost + (haversine(n_latlon, g_latlon) * 1000)
+                    elif distMeas == "euclidean-scaled":
+                        priority = new_cost + pow((pow(next[0] - goal[0], 2) + pow(next[1] - goal[1], 2)), 0.5) * pixelsize_m
+                    elif distMeas == "euclidean":
+                        priority = new_cost + pow((pow(next[0] - goal[0], 2) + pow(next[1] - goal[1], 2)), 0.5)
                 else:           # Default: dijkstra
                     priority = new_cost
 
                 frontier.put(next, priority)
                 came_from[next] = current
-                time_so_far[next] = time_so_far[current] +  (dist / targetSpeed_mps)
+                time_so_far[next] = et
 
     # Reconstruct path
     current = goal
@@ -336,6 +383,9 @@ def main():
     parser.add_option(      "--trace",
                       help = "Path to save map of solver's history. Shows which cells were evaluated.",
                       default = None)
+    parser.add_option(      "--statpath",
+                      help = "Path to list of waypoints to print path information. Will not solve.",
+                      default = None)
 
     (options, args) = parser.parse_args()
 
@@ -353,6 +403,7 @@ def main():
     traceOutFile = options.trace
     if options.trace is not None:
         trace = True
+    statPathFile = options.statpath
 
     # Load occupancy grid from comma-delimited ASCII file
     grid = np.loadtxt(gridFile, delimiter = ",")
@@ -394,12 +445,18 @@ def main():
 
     # Solve
     t0 = time.time()
-    if usingCurrents:
-        if solver == "a*":
-            path, traceGrid, T, C  = solve(grid, start, goal, solver = solver_id, ntype = ntype, trace = trace,
-                                    currentsGrid_u = currentsGrid_u, currentsGrid_v = currentsGrid_v)
-    else:
-        path, traceGrid, T, C = solve(grid, start, goal, ntype = ntype, trace = trace)
+    # Just stat existing path?
+    if statPathFile is not None:
+        path = np.loadtx(statPathFile, delimiter = ",")
+        statPath(path, currentsGrid_u, currentsGrid_v, targetSpeed_mps, pixelsize_m = pixelsize_m)
+
+    else: # Solve -> generate newpath
+        if usingCurrents:
+            if solver == "a*":
+                path, traceGrid, T, C  = solve(grid, start, goal, solver = solver_id, ntype = ntype, trace = trace,
+                                        currentsGrid_u = currentsGrid_u, currentsGrid_v = currentsGrid_v)
+        else:
+            path, traceGrid, T, C = solve(grid, start, goal, ntype = ntype, trace = trace)
     t1 = time.time()
     print("Done solving with {s}, {t} seconds".format(s = solver, t = t1 - t0))
     print("Cost: {c}".format(c = C))

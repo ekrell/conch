@@ -16,7 +16,7 @@ import pygmo as pg
 class solvePath:
     def __init__(self, start, end, grid, targetSpeed_mps, bounds = None,
                  currentsGrid_u = None, currentsGrid_v = None, currentsTransform = None, regionTransform = None,
-                 rewardGrid = None, waypoints = 5, timeIn = 0, interval = 3600, weights = (1, 1, 1)):
+                 rewardGrid = None, waypoints = 5, timeIn = 0, interval = 3600, pixelsize_m = 1, weights = (1, 1, 1)):
         self.start = np.array(start).astype(int)
         self.end = np.array(end).astype(int)
         self.waypoints = waypoints
@@ -33,6 +33,7 @@ class solvePath:
         self.rewardGrid = rewardGrid
         self.timeIn = timeIn
         self.interval = interval
+        self.pixelsize_m = pixelsize_m
         self.emptyPath = np.zeros((waypoints + 2, 2)).astype(int)
         self.emptyPath[0, :] = self.start
         self.emptyPath[waypoints + 1, :] = self.end
@@ -47,7 +48,7 @@ class solvePath:
         path[1:self.waypoints + 1, 1] = x[1::2].astype(int)
         work, dist, obs, reward = calcWork(path, self.pathlen, self.grid, self.targetSpeed_mps,
                 self.currentsGrid_u, self.currentsGrid_v, self.currentsTransform, self.regionTransform,
-                self.rewardGrid, self.timeIn, self.interval)
+                self.rewardGrid, self.timeIn, self.interval, self.pixelsize_m)
         return [(work * self.weights[1]) + (-1 * reward * self.weights[2]) + (obs * obs * 100)]
 
     def get_bounds(self):
@@ -70,12 +71,10 @@ def raster2array(raster, dim_ordering="channels_last", dtype='float32'):
     bands = [raster.GetRasterBand(i) for i in range(1, raster.RasterCount + 1)]
     return np.array([gdn.BandReadAsArray(band) for band in bands]).astype(dtype)
 
-def calcWork(path, n, regionGrid, targetSpeed_mps, currentsGrid_u = None, currentsGrid_v = None, currentsTransform = None, regionTransform = None, rewardGrid = None, timeIn = 0, interval = 3600):
+def calcWork(path, n, regionGrid, targetSpeed_mps, currentsGrid_u = None, currentsGrid_v = None, currentsTransform = None, regionTransform = None, rewardGrid = None, timeIn = 0, interval = 3600, pixelsize_m = 1):
     '''
     This function calculates cost to move vehicle along path
     '''
-    v = path[0]
-
     pDist = np.zeros(n)
     pObs = np.zeros(n)
     pWork = np.zeros(n)
@@ -86,8 +85,8 @@ def calcWork(path, n, regionGrid, targetSpeed_mps, currentsGrid_u = None, curren
     (index, rem) = divmod(elapsed, interval)
     index = floor(index)
 
+    v = path[0]
     for i in range(1, n):
-
         w = path[i]
 
         # Heading
@@ -100,7 +99,11 @@ def calcWork(path, n, regionGrid, targetSpeed_mps, currentsGrid_u = None, curren
             heading_rad = acos(costheta)
 
         # Distance
-        distance = pow((pow(v[0] - w[0], 2) + pow(v[1] - w[1], 2)), 0.5)
+        #distance = pow((pow(v[0] - w[0], 2) + pow(v[1] - w[1], 2)), 0.5)
+        # Haversine
+        v_latlon = grid2world(v[0], v[1], currentsTransform, regionExtent["rows"])
+        w_latlon = grid2world(w[0], w[1], currentsTransform, regionExtent["rows"])
+        hdist = haversine(v_latlon, w_latlon) * 1000
 
         b = list(bresenham(v[0], v[1], w[0], w[1]))
         for p in b[1:]: # Skip first pixel -> already there!
@@ -114,17 +117,10 @@ def calcWork(path, n, regionGrid, targetSpeed_mps, currentsGrid_u = None, curren
         work = 0
         # Calc work to oppose forces
         if currentsGrid_u is not None and currentsGrid_v is not None:
+            b = list(bresenham(v[0], v[1], w[0], w[1]))
+            hdist_ = hdist / len(b)
 
-            # Convert to latlon to get correct pixel in the water currents raster
-            # This is becuase the size/resolution of regions and currents might not be equal
-            v_latlon = grid2world(v[0], v[1], regionTransform, grid.shape[0])
-            v_currents = world2grid(v_latlon[0], v_latlon[1], currentsTransform, currentsGrid_u.shape[1])
-            w_latlon = grid2world(w[0], w[1], regionTransform, grid.shape[0])
-            w_currents = world2grid(w_latlon[0], w_latlon[1], currentsTransform, currentsGrid_u.shape[1])
-
-            b = list(bresenham(v_currents[0], v_currents[1], w_currents[0], w_currents[1]))
-            pixeldist = distance / (len(b) -1)
-            for p in b[1:]: # Skip first pixel -> already there!
+            for p in b[:]:
                 xA = targetSpeed_mps * cos(heading_rad)
                 yA = targetSpeed_mps * sin(heading_rad)
                 # Interpolate (in time) between nearest discrete force values
@@ -141,17 +137,19 @@ def calcWork(path, n, regionGrid, targetSpeed_mps, currentsGrid_u = None, curren
                 if magaDV != 0:
                     costheta = dotprod / magaDV
                     dirDV = acos(costheta)
-                work += magaDV * pixeldist
+                work += magaDV * hdist_
 
                 # Update time
-                elapsed += pixeldist / targetSpeed_mps
+                elapsed += hdist_ / targetSpeed_mps
                 (index, rem) = divmod(elapsed, interval)
                 index = min(floor(index), currentsGrid_u.shape[0] - 2)
 
-        pDist[i] = distance
+        pDist[i] = hdist #distance
         pWork[i] = work
+
         v = w
 
+        #print(hdist, elapsed / 60)
     return sum(pWork), sum(pDist), sum(pObs), sum(pRew)
 
 def world2grid(lat, lon, transform, nrow):
@@ -332,6 +330,12 @@ if __name__ == "__main__":
     start = world2grid(startPoint[0], startPoint[1], regionTransform, regionExtent["rows"])
     end = world2grid(endPoint[0], endPoint[1], regionTransform, regionExtent["rows"])
 
+    # Calculate pixel distance
+    s = grid2world(0, 0, regionTransform, regionExtent["rows"])
+    e = grid2world(0, regionExtent["cols"], regionTransform, regionExtent["rows"])
+    dist_m = haversine(s, e) * 1000
+    pixelsize_m = dist_m / regionExtent["cols"]
+
     if statPathFile is None:
         # Solve
         print("Begin solving")
@@ -340,7 +344,7 @@ if __name__ == "__main__":
                 currentsGrid_u = currentsGrid_u, currentsGrid_v = currentsGrid_v,
                 currentsTransform = currentsTransform_u, regionTransform = regionTransform,
                 rewardGrid = rewardGrid,
-                timeIn = timeOffset_s, interval = timeInterval_s))
+                timeIn = timeOffset_s, interval = timeInterval_s, pixelsize_m = pixelsize_m))
         algo = pg.algorithm(pg.pso(gen = generations, omega = hyperparams[1], eta1 = hyperparams[2], eta2 = hyperparams[3]))
         algo.set_verbosity(10)
         pop = pg.population(prob, poolSize)
@@ -363,13 +367,12 @@ if __name__ == "__main__":
         print("Done solving with {alg}, {s} seconds".format(alg = hyperparams[0], s = t1 - t0))
     else:
         path = np.loadtxt(statPathFile, delimiter=',').astype(int)
-        print(path)
 
     # Path information
     pathlen = len(path)
     work, dist, obs, reward = calcWork(path, pathlen, grid, targetSpeed_mps,
-                               currentsGrid_u, currentsGrid_v, currentsTransform_u, regionTransform,
-                               rewardGrid, timeOffset_s, timeInterval_s)
+                               currentsGrid_u, currentsGrid_v, regionTransform, regionTransform,
+                               rewardGrid, timeOffset_s, timeInterval_s, pixelsize_m)
 
     # Haversine distance
     path_distance = 0
@@ -379,7 +382,7 @@ if __name__ == "__main__":
         point_latlon = grid2world(point[0], point[1], regionTransform, regionExtent["rows"])
         path_distance += haversine(prev_latlon, point_latlon)
         prev_point = point
-    path_duration = ((path_distance / (targetSpeed_mps / 100)) / 60)
+    path_duration = (path_distance * 1000 / targetSpeed_mps) / 60
 
     if usingCurrents:
         print("Planning results (with currents):")
