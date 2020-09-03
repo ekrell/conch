@@ -5,7 +5,7 @@ import heapq
 import time
 from optparse import OptionParser
 import matplotlib.pyplot as plt
-from math import acos, cos, sin, ceil, floor
+from math import acos, cos, sin, ceil, floor, atan2
 from bresenham import bresenham
 from haversine import haversine
 
@@ -206,20 +206,34 @@ def calcWork(v, w, currentsGrid_u, currentsGrid_v, targetSpeed_mps, geotransform
             xA = targetSpeed_mps * cos(heading_rad)
             yA = targetSpeed_mps * sin(heading_rad)
 
-            #xB = currentsGrid_u[0, p[0], p[1]]
-            #yB = currentsGrid_v[0, p[0], p[1]]
             # Interpolate between nearest time's currents
             if currentsGrid_u.shape[0] > 1:
-                cmag = currentsGrid_u[index, p[0] - 1, p[1] - 1] * (rem / interval) + \
-                    currentsGrid_u[index + 1, p[0] - 1, p[1] - 1] * (1 - (rem / interval))
-                cdir = currentsGrid_v[index, p[0] - 1, p[1] - 1] * (rem / interval) + \
-                    currentsGrid_v[index + 1, p[0] - 1, p[1] - 1] * (1 - (rem / interval))
+                ua_ = currentsGrid_u[index, p[0], p[1]] * cos(currentsGrid_v[index, p[0], p[1]])
+                va_ = currentsGrid_u[index, p[0], p[1]] * sin(currentsGrid_v[index, p[0], p[1]])
+                ub_ = currentsGrid_u[index + 1, p[0], p[1]] * cos(currentsGrid_v[index + 1, p[0], p[1]])
+                vb_ = currentsGrid_u[index + 1, p[0], p[1]] * sin(currentsGrid_v[index + 1, p[0], p[1]])
+
+                u_ = ua_ * (1 - (rem / interval)) + ub_ * ((rem / interval))
+                v_ = va_ * (1 - (rem / interval)) + vb_ * ((rem / interval))
+                uv_ = np.array([u_, v_])
+
+                cmag = np.sqrt(uv_.dot(uv_))
+                cdir =  atan2(v_, u_)
+
+                # Convert to knots for sanity check
+                knots = cmag * 1.94384
+                #print(knots)
+
             else:
                 # Static currents -> can't interpolate in time
-                cmag = currentsGrid_u[0, p[0] - 1, p[1] - 1]
-                cdir = currentsGrid_v[0, p[0] - 1, p[1] - 1]
+                cmag = currentsGrid_u[0, p[0], p[1]]
+                cdir = currentsGrid_v[0, p[0], p[1]]
+
             xB = cmag * cos(cdir)
             yB = cmag * sin(cdir)
+
+            # Calculate applied force,
+            # given desired and environment forces
             dV = (xB - xA, yB - yA)
             magaDV = pow(dV[0] * dV[0] + dV[1] * dV[1], 0.5)
             dirDV = 0.0
