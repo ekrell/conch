@@ -229,6 +229,9 @@ def calcWork(v, w, currentsGrid_u, currentsGrid_v, targetSpeed_mps, geotransform
                 cmag = currentsGrid_u[0, p[0], p[1]]
                 cdir = currentsGrid_v[0, p[0], p[1]]
 
+            # Sometimes below is uncommented for testing scaled behavior
+            #cmag = cmag * 10
+
             xB = cmag * cos(cdir)
             yB = cmag * sin(cdir)
 

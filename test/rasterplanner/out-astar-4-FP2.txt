@@ -1,6 +1,0 @@
-Using 1134x1259 grid test/full.tif
-Using 4-way neighborhood
-  Start: (42.33283, -70.97322)
-  End: (42.27184, -70.903406)
-Done solving with a*, 3.090181827545166 seconds
-    Distance: 12.5153 km
