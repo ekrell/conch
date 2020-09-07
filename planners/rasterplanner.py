@@ -42,7 +42,7 @@ def raster2array(raster, dim_ordering="channels_last", dtype='float32'):
 parser = OptionParser()
 parser.add_option("-r", "--region",
                   help = "Path to raster containing binary occupancy region (1 -> obstacle, 0 -> free).",
-                  default = "test/full.tif")
+                  default = "test/inputs/full.tif")
 parser.add_option("-u", "--currents_mag",
                   help = "Path to grid with magnitude of water velocity.",
                   default = None)
@@ -57,16 +57,16 @@ parser.add_option("-p", "--path",
                   default = "test/rasterplan.txt")
 parser.add_option("--sx",
                    help = "Start longitude.",
-                   default = -70.9318)
+                   default = -70.99428)
 parser.add_option("--sy",
                    help = "Start latitude.",
-                   default = 42.3249)
+                   default = 42.32343)
 parser.add_option("--dx",
                    help = "Destination longitude.",
-                   default = -70.9250)
+                   default = -70.88737)
 parser.add_option("--dy",
                    help = "Destination latitude.",
-                   default = 42.2792)
+                   default = 42.33600)
 parser.add_option("--solver",
                    help = "Path finding algorithm (A*, dijkstra).",
                    default = "dijkstra")

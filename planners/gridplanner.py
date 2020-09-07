@@ -1,4 +1,5 @@
-# Solves a raster occupancy grid with classic search algorithm
+#!/usr/bin/python3
+# Solves a raster occupancy grid with classic search algorithms
 
 import numpy as np
 import heapq
@@ -159,7 +160,8 @@ def statPath(path, currentsGrid_u, currentsGrid_v, geotransform, targetSpeed_mps
 
     return work, elapsed
 
-def calcWork(v, w, currentsGrid_u, currentsGrid_v, targetSpeed_mps, geotransform = None, timeIn = 0, interval = 3600, pixelsize_m = 1, distMeas = "haversine"):
+def calcWork(v, w, currentsGrid_u, currentsGrid_v, targetSpeed_mps, geotransform = None,
+             timeIn = 0, interval = 3600, pixelsize_m = 1, distMeas = "haversine"):
     '''
     This function calculates the work applied by a vehicle
     between two points, given rasters with u, v force components
@@ -175,7 +177,6 @@ def calcWork(v, w, currentsGrid_u, currentsGrid_v, targetSpeed_mps, geotransform
     (index, rem) = divmod(elapsed, interval)
     index = min(floor(index), currentsGrid_u.shape[0] - 2)
 
-    # Should use Euclidean distance on (row, col) or Haversine on (lat, lon)?
     if v != w:
         # Heading
         vecs = (w[1] - v[1], w[0] - v[0])
@@ -221,16 +222,13 @@ def calcWork(v, w, currentsGrid_u, currentsGrid_v, targetSpeed_mps, geotransform
                 cdir =  atan2(v_, u_)
 
                 # Convert to knots for sanity check
-                knots = cmag * 1.94384
+                #knots = cmag * 1.94384
                 #print(knots)
 
             else:
                 # Static currents -> can't interpolate in time
                 cmag = currentsGrid_u[0, p[0], p[1]]
                 cdir = currentsGrid_v[0, p[0], p[1]]
-
-            # Sometimes below is uncommented for testing scaled behavior
-            #cmag = cmag * 10
 
             xB = cmag * cos(cdir)
             yB = cmag * sin(cdir)
@@ -257,7 +255,7 @@ def calcWork(v, w, currentsGrid_u, currentsGrid_v, targetSpeed_mps, geotransform
 
 
 def solve(grid, start, goal, solver = 0, ntype = 4, trace = False,
-          currentsGrid_u = None, currentsGrid_v = None, geotransform = None, targetSpeed_mps = 100, timeOffset = 0, pixelsize_m = 1, distMeas = "haversine"):
+          currentsGrid_u = None, currentsGrid_v = None, geotransform = None, targetSpeed_mps = 1, timeOffset = 0, pixelsize_m = 1, distMeas = "haversine"):
 
     solvers = ["dijkstra", "astar"]
     if solver >= len(solvers):
@@ -372,7 +370,6 @@ def main():
     parser = OptionParser()
     parser.add_option("-g", "--grid",
                       help = "Path to ascii binary occupancy grid (nonzero = obstacle).",
-                      default = "test/env_4.txt")
     parser.add_option("-u", "--currents_mag",
                       help = "Path to grid with magnitude of water velocity.",
                       default = None)
