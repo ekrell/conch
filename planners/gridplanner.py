@@ -369,7 +369,7 @@ def main():
 
     parser = OptionParser()
     parser.add_option("-g", "--grid",
-                      help = "Path to ascii binary occupancy grid (nonzero = obstacle).",
+                      help = "Path to ascii binary occupancy grid (nonzero = obstacle).")
     parser.add_option("-u", "--currents_mag",
                       help = "Path to grid with magnitude of water velocity.",
                       default = None)

@@ -14,7 +14,7 @@ import time
 import pygmo as pg
 
 class solvePath:
-    def __init__(self, start, end, grid, targetSpeed_mps, bounds = None,
+    def __init__(self, start, end, grid, targetSpeed_mps = 1, bounds = None,
                  currentsGrid_u = None, currentsGrid_v = None, currentsTransform = None, regionTransform = None,
                  rewardGrid = None, waypoints = 5, timeIn = 0, interval = 3600, pixelsize_m = 1, weights = (1, 1, 1)):
         self.start = np.array(start).astype(int)
@@ -38,7 +38,7 @@ class solvePath:
         self.emptyPath[0, :] = self.start
         self.emptyPath[waypoints + 1, :] = self.end
         if bounds is None:
-            bounds = [0, self.rows, 0, self.cols]
+            bounds = [0, self.rows - 1, 0, self.cols - 1]
         self.b = bounds
         self.weights = weights
 
@@ -71,7 +71,7 @@ def raster2array(raster, dim_ordering="channels_last", dtype='float32'):
     bands = [raster.GetRasterBand(i) for i in range(1, raster.RasterCount + 1)]
     return np.array([gdn.BandReadAsArray(band) for band in bands]).astype(dtype)
 
-def calcWork(path, n, regionGrid, targetSpeed_mps, currentsGrid_u = None, currentsGrid_v = None, currentsTransform = None, regionTransform = None, rewardGrid = None, timeIn = 0, interval = 3600, pixelsize_m = 1):
+def calcWork(path, n, regionGrid, targetSpeed_mps = 1, currentsGrid_u = None, currentsGrid_v = None, currentsTransform = None, regionTransform = None, rewardGrid = None, timeIn = 0, interval = 3600, pixelsize_m = 1):
     '''
     This function calculates cost to move vehicle along path
     '''
@@ -83,7 +83,7 @@ def calcWork(path, n, regionGrid, targetSpeed_mps, currentsGrid_u = None, curren
     # Estimate elapsed time, temporal raster band
     elapsed = float(timeIn)
     (index, rem) = divmod(elapsed, interval)
-    index = floor(index)
+    index = min(floor(index), regionGrid.shape[0] - 2)
 
     v = path[0]
     for i in range(1, n):
@@ -99,20 +99,19 @@ def calcWork(path, n, regionGrid, targetSpeed_mps, currentsGrid_u = None, curren
             heading_rad = acos(costheta)
 
         # Distance
-        #distance = pow((pow(v[0] - w[0], 2) + pow(v[1] - w[1], 2)), 0.5)
-        # Haversine
-        v_latlon = grid2world(v[0], v[1], currentsTransform, regionExtent["rows"])
-        w_latlon = grid2world(w[0], w[1], currentsTransform, regionExtent["rows"])
+        v_latlon = grid2world(v[0], v[1], regionTransform, regionExtent["rows"])
+        w_latlon = grid2world(w[0], w[1], regionTransform, regionExtent["rows"])
         hdist = haversine(v_latlon, w_latlon) * 1000
 
         b = list(bresenham(v[0], v[1], w[0], w[1]))
         for p in b[1:]: # Skip first pixel -> already there!
             # Check obstacles
-            if grid[p[0] - 1, p[1] - 1] != 0:
+            if grid[p[0], p[1]] != 0:
                 pObs[i] += 1
 
             # Add up reward
-            pRew += rewardGrid[p[0] - 1, p[1] - 1]
+            if rewardGrid is not None:
+                pRew += rewardGrid[p[0], p[1]]
 
         work = 0
         # Calc work to oppose forces
@@ -123,13 +122,30 @@ def calcWork(path, n, regionGrid, targetSpeed_mps, currentsGrid_u = None, curren
             for p in b[:]:
                 xA = targetSpeed_mps * cos(heading_rad)
                 yA = targetSpeed_mps * sin(heading_rad)
+
                 # Interpolate (in time) between nearest discrete force values
-                cmag = currentsGrid_u[index, p[0] - 1, p[1] - 1] * (rem / interval) + \
-                    currentsGrid_u[index + 1, p[0] - 1, p[1] - 1] * (1 - (rem / interval))
-                cdir = currentsGrid_v[index, p[0] - 1, p[1] - 1] * (rem / interval) + \
-                    currentsGrid_v[index + 1, p[0] - 1, p[1] - 1] * (1 - (rem / interval))
+                ua_ = currentsGrid_u[index, p[0], p[1]] * cos(currentsGrid_v[index, p[0], p[1]])
+                va_ = currentsGrid_u[index, p[0], p[1]] * sin(currentsGrid_v[index, p[0], p[1]])
+                ub_ = currentsGrid_u[index + 1, p[0], p[1]] * cos(currentsGrid_v[index + 1, p[0], p[1]])
+                vb_ = currentsGrid_u[index + 1, p[0], p[1]] * sin(currentsGrid_v[index + 1, p[0], p[1]])
+
+                u_ = ua_ * (1 - (rem / interval)) + ub_ * ((rem / interval))
+                v_ = va_ * (1 - (rem / interval)) + vb_ * ((rem / interval))
+                uv_ = np.array([u_, v_])
+
+                cmag = np.sqrt(uv_.dot(uv_))
+                cdir =  atan2(v_, u_)
+
+                #cmag = currentsGrid_u[index, p[0], p[1]] * (rem / interval) + \
+                #    currentsGrid_u[index + 1, p[0], p[1]] * (1 - (rem / interval))
+                #cdir = currentsGrid_v[index, p[0]  p[1]] * (rem / interval) + \
+                #    currentsGrid_v[index + 1, p[0], p[1]] * (1 - (rem / interval))
+
                 xB = cmag * cos(cdir)
                 yB = cmag * sin(cdir)
+
+                # Calculate applied force,
+                # given desired and environment forces
                 dV = (xB - xA, yB - yA)
                 magaDV = pow(dV[0] * dV[0] + dV[1] * dV[1], 0.5)
                 dirDV = 0.0
@@ -137,16 +153,19 @@ def calcWork(path, n, regionGrid, targetSpeed_mps, currentsGrid_u = None, curren
                 if magaDV != 0:
                     costheta = dotprod / magaDV
                     dirDV = acos(costheta)
+
                 work += magaDV * hdist_
 
                 # Update time
                 elapsed += hdist_ / targetSpeed_mps
                 (index, rem) = divmod(elapsed, interval)
-                index = min(floor(index), currentsGrid_u.shape[0] - 2)
+                index = min(floor(index), regionGrid.shape[0] - 2)
 
         pDist[i] = hdist #distance
-        pWork[i] = work
+        # If no currents, "work"" is just the distance
+        pWork[i] = work if currentsGrid_u is not None else hdist
 
+        # Next waypoint is now current
         v = w
 
         #print(hdist, elapsed / 60)
@@ -184,22 +203,22 @@ if __name__ == "__main__":
     # Environment
     parser.add_option("-r", "--region",
                       help  = "Path to raster containing occupancy grid (0 -> free space).",
-                      default = "test/acc2020/full.tif")
+                      default = "test/inputs/full.tif")
     parser.add_option("-m", "--map",
                       help = "Path to save solution path map.",
-                      default = "test/acc2020/test.png")
+                      default = "test/metaplan.png")
     parser.add_option("-p", "--path",
                       help = "Path to save solution path.",
-                      default = "test/acc2020/test.txt")
+                      default = "test/metaplan.txt")
     parser.add_option("-u", "--currents_mag",
                       help = "Path to raster with magnitude of water velocity.",
-                      default = "test/acc2020/waterMag.tif")
+                      default = None)
     parser.add_option("-v", "--currents_dir",
                       help = "Path to raster with direction of water velocity.",
-                      default = "test/acc2020/waterDir.tif")
+                      default = None)
     parser.add_option(      "--reward",
                       help = "Path to numpy array (txt) with reward at each cell",
-                      default = "test/acc2020/reward.txt")
+                      default = None)
     parser.add_option(      "--sx",
                       help = "Start longitude.",
                       default = -70.99428)
@@ -227,7 +246,7 @@ if __name__ == "__main__":
     # Optimization parameters
     parser.add_option("-n", "--num_waypoints",   type = "int", default = 5,
                       help = "Number of solution waypoints to generate.")
-    parser.add_option(      "--generations",     type = "int", default = 1000,
+    parser.add_option(      "--generations",     type = "int", default = 500,
                       help = "Number of optimization generations.")
     parser.add_option(      "--pool_size",       type = "int", default = 100,
                       help = "Number of individuals in optimization pool")
@@ -260,6 +279,9 @@ if __name__ == "__main__":
     timeOffset_s = options.time_offset
     timeInterval_s = options.time_interval
 
+    usingWork = True if currentsRasterFile_u is not None else False
+    usingReward = True if rewardGridFile is not None else False
+
     # Optimization
     numWaypoints = options.num_waypoints
     generations = options.generations
@@ -287,7 +309,7 @@ if __name__ == "__main__":
 
     # Bounds
     if options.bounds is None:
-        bounds = np.array([0, regionExtent["rows"], 0, regionExtent["cols"]])
+        bounds = np.array([0, regionExtent["rows"] - 1, 0, regionExtent["cols"] - 1])
     else:
         bounds = np.array(options.bounds.split(",")).astype(int)
 
@@ -295,6 +317,8 @@ if __name__ == "__main__":
     elapsedTime = 0
     bandIndex = 0
     usingCurrents = False
+    currentsGrid_u = currentsGrid_v = currentsTransform_u = currentsTransform_v = None
+    rewardGrid = None
     if currentsRasterFile_u is not None and currentsRasterFile_v is not None:
         bandIndex = 1
 

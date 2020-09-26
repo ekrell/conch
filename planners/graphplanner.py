@@ -301,7 +301,9 @@ def main():
     parser.add_option(      "--trace",
                       help = "Path to save map of solver's history. Shows which cells were evaluated.",
                       default = None)
-
+    parser.add_option(     "--dist_measure",
+                      help = "Which distance measurement to use (haversine, euclidean, or euclidean-scaled).",
+                      default = "haversine")
     (options, args) = parser.parse_args()
 
     regionRasterFile = options.region
