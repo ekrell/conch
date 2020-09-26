@@ -211,8 +211,13 @@ def calcWork(v, w, currentsGrid_u, currentsGrid_v, targetSpeed_mps, geotransform
             if currentsGrid_u.shape[0] > 1:
                 ua_ = currentsGrid_u[index, p[0], p[1]] * cos(currentsGrid_v[index, p[0], p[1]])
                 va_ = currentsGrid_u[index, p[0], p[1]] * sin(currentsGrid_v[index, p[0], p[1]])
-                ub_ = currentsGrid_u[index + 1, p[0], p[1]] * cos(currentsGrid_v[index + 1, p[0], p[1]])
-                vb_ = currentsGrid_u[index + 1, p[0], p[1]] * sin(currentsGrid_v[index + 1, p[0], p[1]])
+                try:
+                    ub_ = currentsGrid_u[index + 1, p[0], p[1]] * cos(currentsGrid_v[index + 1, p[0], p[1]])
+                    vb_ = currentsGrid_u[index + 1, p[0], p[1]] * sin(currentsGrid_v[index + 1, p[0], p[1]])
+                except:
+                    ub_ = currentsGrid_u[index, p[0], p[1]] * cos(currentsGrid_v[index + 1, p[0], p[1]])
+                    vb_ = currentsGrid_u[index, p[0], p[1]] * sin(currentsGrid_v[index + 1, p[0], p[1]])
+
 
                 u_ = ua_ * (1 - (rem / interval)) + ub_ * ((rem / interval))
                 v_ = va_ * (1 - (rem / interval)) + vb_ * ((rem / interval))

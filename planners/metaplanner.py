@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from optparse import OptionParser
 from optparse import OptionParser
 import dill as pickle
-from math import acos, cos, sin, ceil, floor
+from math import acos, cos, sin, ceil, floor, atan2
 from osgeo import gdal
 from bresenham import bresenham
 import osgeo.gdalnumeric as gdn
@@ -126,8 +126,12 @@ def calcWork(path, n, regionGrid, targetSpeed_mps = 1, currentsGrid_u = None, cu
                 # Interpolate (in time) between nearest discrete force values
                 ua_ = currentsGrid_u[index, p[0], p[1]] * cos(currentsGrid_v[index, p[0], p[1]])
                 va_ = currentsGrid_u[index, p[0], p[1]] * sin(currentsGrid_v[index, p[0], p[1]])
-                ub_ = currentsGrid_u[index + 1, p[0], p[1]] * cos(currentsGrid_v[index + 1, p[0], p[1]])
-                vb_ = currentsGrid_u[index + 1, p[0], p[1]] * sin(currentsGrid_v[index + 1, p[0], p[1]])
+                try:
+                    ub_ = currentsGrid_u[index + 1, p[0], p[1]] * cos(currentsGrid_v[index + 1, p[0], p[1]])
+                    vb_ = currentsGrid_u[index + 1, p[0], p[1]] * sin(currentsGrid_v[index + 1, p[0], p[1]])
+                except: # Outside time bounds
+                    ub_ = currentsGrid_u[index, p[0], p[1]] * cos(currentsGrid_v[index + 1, p[0], p[1]])
+                    vb_ = currentsGrid_u[index, p[0], p[1]] * sin(currentsGrid_v[index + 1, p[0], p[1]])
 
                 u_ = ua_ * (1 - (rem / interval)) + ub_ * ((rem / interval))
                 v_ = va_ * (1 - (rem / interval)) + vb_ * ((rem / interval))
@@ -248,9 +252,9 @@ if __name__ == "__main__":
                       help = "Number of solution waypoints to generate.")
     parser.add_option(      "--generations",     type = "int", default = 500,
                       help = "Number of optimization generations.")
-    parser.add_option(      "--pool_size",       type = "int", default = 100,
+    parser.add_option(      "--pool_size",       type = "int", default = 50,
                       help = "Number of individuals in optimization pool")
-    parser.add_option(      "--distance_weight",     type = "float", default = 1.0,
+    parser.add_option(      "--distance_weight", type = "float", default = 1.0,
                       help = "Weight of distance attribute in fitness.")
     parser.add_option(      "--force_weight",    type = "float", default = 1.0,
                       help = "Weight of force attribute in fitness.")
