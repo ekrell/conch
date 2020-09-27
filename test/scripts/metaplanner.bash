@@ -1,6 +1,15 @@
 #!/bin/bash
 
-CHUNKS=$1
+# Purpose:
+# Runs several trials using Particle Swarm Optimization
+# Various goals, water currents forecasts, speeds, 
+# and PSO params: num waypoints, generations, pool size
+
+# Options
+CHUNKS=$1 # Parallel threads
+if [[ $CHUNKS != *[!\ ]*   ]]; then
+    CHUNKS=1 # Default 1 thread
+fi
 
 PREFIX="/usr/bin/python3 planners/metaplanner.py -r test/inputs/full.tif"
 DIR="test/outputs/metaplanner/"
@@ -16,12 +25,6 @@ WORK_1="--currents_mag test/inputs/20170503_magwater.tiff --currents_dir test/in
 WORK_2="--currents_mag test/inputs/20170801_magwater.tiff --currents_dir test/inputs/20170801_dirwater.tiff"
 WORK_3="--currents_mag test/inputs/20191001_magwater.tiff --currents_dir test/inputs/20191001_dirwater.tiff"
 WORK_4="--currents_mag test/inputs/20200831_magwater.tiff --currents_dir test/inputs/20200831_dirwater.tiff"
-
-PSO_CMD="$PREFIX $PATH_{1} $WORK_{2} --speed {3} --generations {4} --pool_size {5} --num_waypoints {6} \
-    --map $DIR/PSO_P{1}_W{2}_S{3}_G{4}_I{5}_N{6}__T{7}.png \
-    --path $DIR/PSO_P{1}_W{2}_S{3}_G{4}_I{5}_N{6}__T{7}.txt \
-    > $DIR/PSO_P{1}_W{2}_S{3}_G{4}_I{5}_N{6}__T{7}.out"
-
 
 paths=("$PATH_1" "$PATH_2" "$PATH_3")
 works=("$WORK_0" "$WORK_1" "$WORK_2" "$WORK_3" "$WORK_4")
@@ -53,4 +56,4 @@ echo "$PREFIX ${paths[$p]} ${works[$w]} --speed $speed --generations $gen --pool
     done
 done
 
-cat $DIR/cmds.txt | parallel -j 5
+cat $DIR/cmds.txt | parallel -j $CHUNKS

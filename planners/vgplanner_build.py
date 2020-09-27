@@ -35,19 +35,19 @@ rangeWidth = 100
 parser = OptionParser()
 parser.add_option("-r", "--region",
         help = "Path to raster containing binary occupancy region (1 -> obstacle, 0 -> free)",
-        default = "/home/ekrell/Downloads/ADVGEO_DL/sample_region_mini.tif")
+        default = "test/inputs/full.tif")
 parser.add_option("-g", "--graph",
         help = "Path to save  visibility graph",
-        default = "/home/ekrell/Downloads/ADVGEO_DL/sample_region_mini.graph")
+        default = "test/visgraph.graph")
 parser.add_option("-s", "--shape",
         help = "Path to save shapefile",
-        default = "/home/ekrell/Downloads/ADVGEO_DL/sample_region_mini.shp")
+        default = "test/visgraph.shp")
 parser.add_option("-m", "--map",
         help = "Path to save polygon map",
-        default = "/home/ekrell/Downloads/ADVGEO_DL/sample_region_mini.png")
+        default = "test/visgraph-poly.png")
 parser.add_option("-v", "--vgmap",
         help = "Path to save visibility graph map",
-        default = "/home/ekrell/Downloads/ADVGEO_DL/sample_region_graph_mini.png")
+        default = None)
 parser.add_option("-n", "--num_workers", type = "int",
         help = "Number of parallel workers",
         default = 4)
@@ -172,22 +172,23 @@ graph.save(graphOutFile)
 print("Saved visibility graph to file: {}".format(graphOutFile))
 
 # Plot visibility graph
-print("Begin plotting visibility graph: {} edges".format(len(edges)))
-edges = graph.visgraph.get_edges()
-for e in list(edges):
-    plt.plot([ \
-          (e.p1.x  / rangeWidth) * (maxx - minx) + minx,
-          (e.p2.x  / rangeWidth) * (maxx - minx) + minx],
-        [ (e.p1.y / rangeWidth) * (maxy - miny) + miny,
-          (e.p2.y / rangeWidth) * (maxy - miny) + miny],
-        color = 'green', linestyle = 'dashed', alpha = 0.5)
-    plt.scatter([ \
-         (e.p1.x  / rangeWidth) * (maxx - minx) + minx,
-         (e.p2.x  / rangeWidth) * (maxx - minx) + minx],
-        [(e.p1.y  / rangeWidth) * (maxy - miny) + miny,
-         (e.p2.y  / rangeWidth) * (maxy - miny) + miny],
-        s = 1, color = 'green')
-print("Done plotting visibiity graph")
-# Save VG map
-plt.savefig(vgmapOutFile)
-print("Saved visibility graph map to file: {}".format(vgmapOutFile))
+if vgmapOutFile is not None:
+    edges = graph.visgraph.get_edges()
+    print("Begin plotting visibility graph: {} edges".format(len(edges)))
+    for e in list(edges):
+        plt.plot([ \
+              (e.p1.x  / rangeWidth) * (maxx - minx) + minx,
+              (e.p2.x  / rangeWidth) * (maxx - minx) + minx],
+            [ (e.p1.y / rangeWidth) * (maxy - miny) + miny,
+              (e.p2.y / rangeWidth) * (maxy - miny) + miny],
+            color = 'green', linestyle = 'dashed', alpha = 0.5)
+        plt.scatter([ \
+             (e.p1.x  / rangeWidth) * (maxx - minx) + minx,
+             (e.p2.x  / rangeWidth) * (maxx - minx) + minx],
+            [(e.p1.y  / rangeWidth) * (maxy - miny) + miny,
+             (e.p2.y  / rangeWidth) * (maxy - miny) + miny],
+            s = 1, color = 'green')
+    print("Done plotting visibiity graph")
+    # Save VG map
+    plt.savefig(vgmapOutFile)
+    print("Saved visibility graph map to file: {}".format(vgmapOutFile))

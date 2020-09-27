@@ -130,8 +130,8 @@ def calcWork(path, n, regionGrid, targetSpeed_mps = 1, currentsGrid_u = None, cu
                     ub_ = currentsGrid_u[index + 1, p[0], p[1]] * cos(currentsGrid_v[index + 1, p[0], p[1]])
                     vb_ = currentsGrid_u[index + 1, p[0], p[1]] * sin(currentsGrid_v[index + 1, p[0], p[1]])
                 except: # Outside time bounds
-                    ub_ = currentsGrid_u[index, p[0], p[1]] * cos(currentsGrid_v[index + 1, p[0], p[1]])
-                    vb_ = currentsGrid_u[index, p[0], p[1]] * sin(currentsGrid_v[index + 1, p[0], p[1]])
+                    ub_ = currentsGrid_u[index, p[0], p[1]] * cos(currentsGrid_v[index, p[0], p[1]])
+                    vb_ = currentsGrid_u[index, p[0], p[1]] * sin(currentsGrid_v[index, p[0], p[1]])
 
                 u_ = ua_ * (1 - (rem / interval)) + ub_ * ((rem / interval))
                 v_ = va_ * (1 - (rem / interval)) + vb_ * ((rem / interval))
