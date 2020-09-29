@@ -80,10 +80,11 @@ def calcWork(path, n, regionGrid, targetSpeed_mps = 1, currentsGrid_u = None, cu
     pWork = np.zeros(n)
     pRew = np.zeros(n)
 
-    # Estimate elapsed time, temporal raster band
+     # Estimate elapsed time, temporal raster band
     elapsed = float(timeIn)
     (index, rem) = divmod(elapsed, interval)
-    index = min(floor(index), regionGrid.shape[0] - 2)
+    if currentsGrid_u is not None:
+        index = min(floor(index), currentsGrid_u.shape[0] - 2)
 
     v = path[0]
     for i in range(1, n):
@@ -104,75 +105,61 @@ def calcWork(path, n, regionGrid, targetSpeed_mps = 1, currentsGrid_u = None, cu
         hdist = haversine(v_latlon, w_latlon) * 1000
 
         b = list(bresenham(v[0], v[1], w[0], w[1]))
-        for p in b[1:]: # Skip first pixel -> already there!
+        hdist_ = hdist / len(b)
+        for p in b[:]: # Skip first pixel -> already there!
             # Check obstacles
             if grid[p[0], p[1]] != 0:
-                pObs[i] += 1
+                pObs += 1
 
             # Add up reward
             if rewardGrid is not None:
                 pRew += rewardGrid[p[0], p[1]]
 
-        work = 0
         # Calc work to oppose forces
         if currentsGrid_u is not None and currentsGrid_v is not None:
-            b = list(bresenham(v[0], v[1], w[0], w[1]))
-            hdist_ = hdist / len(b)
 
-            for p in b[:]:
-                xA = targetSpeed_mps * cos(heading_rad)
-                yA = targetSpeed_mps * sin(heading_rad)
+            # Vehicle target velocity
+            xA = targetSpeed_mps * cos(heading_rad)
+            yA = targetSpeed_mps * sin(heading_rad)
 
-                # Interpolate (in time) between nearest discrete force values
-                ua_ = currentsGrid_u[index, p[0], p[1]] * cos(currentsGrid_v[index, p[0], p[1]])
-                va_ = currentsGrid_u[index, p[0], p[1]] * sin(currentsGrid_v[index, p[0], p[1]])
-                try:
-                    ub_ = currentsGrid_u[index + 1, p[0], p[1]] * cos(currentsGrid_v[index + 1, p[0], p[1]])
-                    vb_ = currentsGrid_u[index + 1, p[0], p[1]] * sin(currentsGrid_v[index + 1, p[0], p[1]])
-                except: # Outside time bounds
-                    ub_ = currentsGrid_u[index, p[0], p[1]] * cos(currentsGrid_v[index, p[0], p[1]])
-                    vb_ = currentsGrid_u[index, p[0], p[1]] * sin(currentsGrid_v[index, p[0], p[1]])
+            ela = np.array([(hdist_ / targetSpeed_mps) * i + elapsed for i in range(len(b))])
+            # vectorized?
+            idx_rem = np.divmod(ela, interval)
+            p = np.array(b[:]).astype("int")
+            idx_1 = np.minimum(idx_rem[0], currentsGrid_u.shape[0] - 2).astype("int")
+            idx_2 = idx_1 + 1
 
-                u_ = ua_ * (1 - (rem / interval)) + ub_ * ((rem / interval))
-                v_ = va_ * (1 - (rem / interval)) + vb_ * ((rem / interval))
-                uv_ = np.array([u_, v_])
 
-                cmag = np.sqrt(uv_.dot(uv_))
-                cdir =  atan2(v_, u_)
+            uv_ = np.array(
+                (
+                    (currentsGrid_u[idx_1, p[:, 0], p[:, 1]] * np.cos(currentsGrid_v[idx_1, p[:, 0], p[:, 1]])) \
+                        * (1 - (idx_rem[1] / interval)) + \
+                            (currentsGrid_u[idx_2, p[:, 0], p[:, 1]]) * np.cos((currentsGrid_v[idx_2, p[:, 0], p[:, 1]])) \
+                                * (idx_rem[1] / interval),
+                    (currentsGrid_u[idx_1, p[:, 0], p[:, 1]]) * np.sin((currentsGrid_v[idx_1, p[:, 0], p[:, 1]])) \
+                        * (1 - (idx_rem[1] / interval)) + \
+                            (currentsGrid_u[idx_2, p[:, 0], p[:, 1]]) * np.sin((currentsGrid_v[idx_2, p[:, 0], p[:, 1]])) \
+                                * (idx_rem[1] / interval)
+                )
+            ).T
 
-                #cmag = currentsGrid_u[index, p[0], p[1]] * (rem / interval) + \
-                #    currentsGrid_u[index + 1, p[0], p[1]] * (1 - (rem / interval))
-                #cdir = currentsGrid_v[index, p[0]  p[1]] * (rem / interval) + \
-                #    currentsGrid_v[index + 1, p[0], p[1]] * (1 - (rem / interval))
+            cmag = np.sqrt(np.sum(uv_ * uv_, axis = 1))
+            cdir = np.arctan2(uv_[:, 1], uv_[:, 0])
+            xB = cmag * np.cos(cdir)
+            yB = cmag * np.sin(cdir)
+            dV = np.array((xB - xA, yB - yA)).T
+            magaDV = np.power(dV[:, 0] * dV[:, 0] + dV[:, 1] * dV[:, 1], 0.5)
+            dotprod = dV[:, 0]
+            costheta = dotprod / magaDV   # Prob need to check for div by 0 ??
+            dwork = magaDV * hdist_
 
-                xB = cmag * cos(cdir)
-                yB = cmag * sin(cdir)
-
-                # Calculate applied force,
-                # given desired and environment forces
-                dV = (xB - xA, yB - yA)
-                magaDV = pow(dV[0] * dV[0] + dV[1] * dV[1], 0.5)
-                dirDV = 0.0
-                dotprod = dV[0] * 1 + dV[1] * 0
-                if magaDV != 0:
-                    costheta = dotprod / magaDV
-                    dirDV = acos(costheta)
-
-                work += magaDV * hdist_
-
-                # Update time
-                elapsed += hdist_ / targetSpeed_mps
-                (index, rem) = divmod(elapsed, interval)
-                index = min(floor(index), regionGrid.shape[0] - 2)
-
+            elapsed = ela[-1] + (hdist_ / targetSpeed_mps)
         pDist[i] = hdist #distance
         # If no currents, "work"" is just the distance
-        pWork[i] = work if currentsGrid_u is not None else hdist
+        pWork[i] =  sum(dwork) if currentsGrid_u is not None else hdist
 
         # Next waypoint is now current
         v = w
-
-        #print(hdist, elapsed / 60)
     return sum(pWork), sum(pDist), sum(pObs), sum(pRew)
 
 def world2grid(lat, lon, transform, nrow):
@@ -330,13 +317,13 @@ if __name__ == "__main__":
         currentsData_u = gdal.Open(currentsRasterFile_u)
         currentsExtent_u = getGridExtent(currentsData_u)
         currentsTransform_u = currentsData_u.GetGeoTransform()
-        currentsGrid_u = raster2array(currentsData_u)
+        currentsGrid_u = np.nan_to_num(raster2array(currentsData_u))
 
         # Load force directions
         currentsData_v = gdal.Open(currentsRasterFile_v)
         currentsExtent_v = getGridExtent(currentsData_v)
         currentsTransform_v = currentsData_v.GetGeoTransform()
-        currentsGrid_v = raster2array(currentsData_v)
+        currentsGrid_v = np.nan_to_num(raster2array(currentsData_v))
 
         # Sanity check that the current mag, dir rasters match
         if currentsExtent_u["rows"] != currentsExtent_v["rows"] or \

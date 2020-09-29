@@ -11,7 +11,7 @@ if [[ $CHUNKS != *[!\ ]*   ]]; then
     CHUNKS=1 # Default 1 thread
 fi
 
-PREFIX="/usr/bin/python3 planners/metaplanner.py -r test/inputs/full.tif"
+PREFIX="python3 planners/metaplanner.py -r test/inputs/full.tif"
 DIR="test/outputs/metaplanner/"
 
 # Start-goal path scenarios
@@ -25,6 +25,10 @@ WORK_1="--currents_mag test/inputs/20170503_magwater.tiff --currents_dir test/in
 WORK_2="--currents_mag test/inputs/20170801_magwater.tiff --currents_dir test/inputs/20170801_dirwater.tiff"
 WORK_3="--currents_mag test/inputs/20191001_magwater.tiff --currents_dir test/inputs/20191001_dirwater.tiff"
 WORK_4="--currents_mag test/inputs/20200831_magwater.tiff --currents_dir test/inputs/20200831_dirwater.tiff"
+
+# PSO params
+#HP=" --hyperparams pso,0.7,2.4,2.4 "
+HP="" # Default
 
 paths=("$PATH_1" "$PATH_2" "$PATH_3")
 works=("$WORK_0" "$WORK_1" "$WORK_2" "$WORK_3" "$WORK_4")
@@ -44,7 +48,7 @@ for p in $PATHS; do
                 for pool in $POOLS; do
                     for way in $WAYPOINTS; do
                         for trial in $TRIALS; do
-echo "$PREFIX ${paths[$p]} ${works[$w]} --speed $speed --generations $gen --pool_size $pool --num_waypoints $way \
+echo "$PREFIX $HP ${paths[$p]} ${works[$w]} --speed $speed --generations $gen --pool_size $pool --num_waypoints $way \
     --map $DIR/PSO_P$p""_W$w""_S$speed""_G$gen""_I$pool""_N$way""__T$trial"".png \
     --path $DIR/PSO_P$p""_W$w""_S$speed""_G$gen""_I$pool""_N$way""__T$trial"".txt \
     > $DIR/PSO_P$p""_W$w""_S$speed""_G$gen""_I$pool""_N$way""__T$trial"".out" >> $DIR/cmds.txt
