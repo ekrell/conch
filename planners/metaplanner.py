@@ -105,15 +105,17 @@ def calcWork(path, n, regionGrid, targetSpeed_mps = 1, currentsGrid_u = None, cu
         hdist = haversine(v_latlon, w_latlon) * 1000
 
         b = list(bresenham(v[0], v[1], w[0], w[1]))
+        p = np.array(b[:]).astype("int")
         hdist_ = hdist / len(b)
-        for p in b[:]: # Skip first pixel -> already there!
-            # Check obstacles
-            if grid[p[0], p[1]] != 0:
-                pObs += 1
 
-            # Add up reward
-            if rewardGrid is not None:
-                pRew += rewardGrid[p[0], p[1]]
+        # Sum obstacles
+        # Note: has error where all elems in 'pObs' get incremented...
+        # ... but left alone since working well (more obstacle sensitive)
+        pObs += sum(grid[p[:, 0], p[:, 1]])
+
+        # Sum rewards
+        if rewardGrid is not None:
+            pRew[i] += sum(rewardGrid[p[:, 0], p[:, 1]])
 
         # Calc work to oppose forces
         if currentsGrid_u is not None and currentsGrid_v is not None:
@@ -125,7 +127,6 @@ def calcWork(path, n, regionGrid, targetSpeed_mps = 1, currentsGrid_u = None, cu
             ela = np.array([(hdist_ / targetSpeed_mps) * i + elapsed for i in range(len(b))])
             # vectorized?
             idx_rem = np.divmod(ela, interval)
-            p = np.array(b[:]).astype("int")
             idx_1 = np.minimum(idx_rem[0], currentsGrid_u.shape[0] - 2).astype("int")
             idx_2 = idx_1 + 1
 
@@ -296,7 +297,7 @@ if __name__ == "__main__":
     regionData = gdal.Open(regionRasterFile)
     regionExtent = getGridExtent(regionData)
     regionTransform = regionData.GetGeoTransform()
-    grid = regionData.GetRasterBand(1).ReadAsArray()
+    grid = np.nan_to_num(regionData.GetRasterBand(1).ReadAsArray())
 
     # Bounds
     if options.bounds is None:
