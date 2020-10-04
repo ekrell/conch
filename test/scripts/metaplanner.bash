@@ -27,8 +27,8 @@ WORK_3="--currents_mag test/inputs/20191001_magwater.tiff --currents_dir test/in
 WORK_4="--currents_mag test/inputs/20200831_magwater.tiff --currents_dir test/inputs/20200831_dirwater.tiff"
 
 # PSO params
-#HP=" --hyperparams pso,0.7,2.4,2.4 "
-HP="" # Default
+HP=" --hyperparams pso,0.7,2.4,2.4 "
+#HP="" # Default
 
 paths=("$PATH_1" "$PATH_2" "$PATH_3")
 works=("$WORK_0" "$WORK_1" "$WORK_2" "$WORK_3" "$WORK_4")
@@ -36,7 +36,7 @@ PATHS="0 1 2"
 WORKS="0 1 2 3 4"
 SPEEDS="0.5 5"
 GENS="500"
-POOLS="50"
+POOLS="100"
 WAYPOINTS="5"
 TRIALS="1 2 3"
 

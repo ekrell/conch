@@ -1,0 +1,456 @@
+#!/usr/bin/python3
+
+import numpy as np
+import matplotlib.pyplot as plt
+from optparse import OptionParser
+from optparse import OptionParser
+import dill as pickle
+from math import acos, cos, sin, ceil, floor, atan2
+from osgeo import gdal
+import bresenham
+import osgeo.gdalnumeric as gdn
+import time
+import pygmo as pg
+from haversine import haversine
+
+def haversine_np(lon1, lat1, lon2, lat2):
+    """
+    Calculate the great circle distance between two points
+    on the earth (specified in decimal degrees)
+
+    All args must be of equal length.
+
+    Source: stackoverflow user, derricw
+    Link: https://stackoverflow.com/a/29546836
+    License: CC BY-SA 4.0
+    """
+    lon1, lat1, lon2, lat2 = map(np.radians, [lon1, lat1, lon2, lat2])
+
+    dlon = lon2 - lon1
+    dlat = lat2 - lat1
+
+    a = np.sin(dlat/2.0)**2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon/2.0)**2
+
+    c = 2 * np.arcsin(np.sqrt(a))
+    km = 6367 * c
+    return km
+
+class solvePath:
+    def __init__(self, start, end, grid, targetSpeed_mps = 1, bounds = None,
+                 currentsGrid_u = None, currentsGrid_v = None, currentsTransform = None, regionTransform = None,
+                 rewardGrid = None, waypoints = 5, timeIn = 0, interval = 3600, pixelsize_m = 1, weights = (1, 1, 1)):
+        self.start = np.array(start).astype(int)
+        self.end = np.array(end).astype(int)
+        self.waypoints = waypoints
+        self.dim = waypoints * 2
+        self.pathlen = waypoints + 2
+        self.grid = grid
+        self.rows = grid.shape[0]
+        self.cols = grid.shape[1]
+        self.targetSpeed_mps = targetSpeed_mps
+        self.currentsGrid_u = currentsGrid_u
+        self.currentsGrid_v = currentsGrid_v
+        self.currentsTransform = currentsTransform
+        self.regionTransform = regionTransform
+        self.rewardGrid = rewardGrid
+        self.timeIn = timeIn
+        self.interval = interval
+        self.pixelsize_m = pixelsize_m
+        self.emptyPath = np.zeros((waypoints + 2, 2)).astype(int)
+        self.emptyPath[0, :] = self.start
+        self.emptyPath[waypoints + 1, :] = self.end
+        if bounds is None:
+            bounds = [0, self.rows - 1, 0, self.cols - 1]
+        self.b = bounds
+        self.weights = weights
+
+    def fitness(self, x):
+        path = self.emptyPath
+        path[1:self.waypoints + 1, 0] = x[::2].astype(int)
+        path[1:self.waypoints + 1, 1] = x[1::2].astype(int)
+        work, dist, obs, reward = calcWork(path, self.pathlen, self.grid, self.targetSpeed_mps,
+                self.currentsGrid_u, self.currentsGrid_v, self.currentsTransform, self.regionTransform,
+                self.rewardGrid, self.timeIn, self.interval, self.pixelsize_m)
+        return [(work * self.weights[1]) + (-1 * reward * self.weights[2]) + (obs * obs * 100)]
+
+    def get_bounds(self):
+        lowerBounds = np.zeros(self.dim)
+        upperBounds = np.zeros(self.dim)
+        for i in range(self.dim):
+            if i % 2 == 0:
+                lowerBounds[i] = self.b[0]
+                upperBounds[i] = self.b[1]
+            else:
+                lowerBounds[i] = self.b[2]
+                upperBounds[i] = self.b[3]
+        return (lowerBounds, upperBounds)
+
+    def get_name(self):
+        return "Solve path"
+
+def raster2array(raster, dim_ordering="channels_last", dtype='float32'):
+    # Modified from: https://gis.stackexchange.com/a/283207
+    bands = [raster.GetRasterBand(i) for i in range(1, raster.RasterCount + 1)]
+    return np.array([gdn.BandReadAsArray(band) for band in bands]).astype(dtype)
+
+def calcWork(path, n, regionGrid, targetSpeed_mps = 1, currentsGrid_u = None, currentsGrid_v = None, currentsTransform = None, regionTransform = None, rewardGrid = None, timeIn = 0, interval = 3600, pixelsize_m = 1):
+    '''
+    This function calculates cost to move vehicle along path
+    '''
+
+    # Initialize costs: distance, obstacles, work, reward
+    costs = np.zeros(4)
+
+    # Get all cells along path
+    cells_ = np.array([bresenham.bresenhamline(np.array([path[i]]),
+                                               np.array([path[i + 1]])) for i, p in enumerate(path[:-1])])
+    # Number of cells in each path segment
+    lens = np.array([len(c) for c in cells_])
+    cells = np.vstack(cells_)
+
+    # Obstacle penalty
+    costs[1] = np.sum((grid[cells[:, 0], cells[:, 1]]))
+
+    # Points in (lon, lat)
+    lonlat = np.vstack((regionTransform[1] * path[:, 1] + regionTransform[2] * path[:, 0] + regionTransform[0],
+                        regionTransform[4] * path[:, 1] + regionTransform[5] * path[:, 0] + regionTransform[3])).T
+
+    # Haversine distances, converted from km to meters
+    hdists = haversine_np(lonlat[:-1][:, 0], lonlat[:-1][:, 1], lonlat[1:][:, 0], lonlat[1:][:, 1]) * 1000
+    # Distance penalty
+    costs[0] = sum(hdists)
+
+    # If no water currents, return now
+    if currentsGrid_u is None:
+        costs[2] = costs[0]
+        return costs[2], costs[0], costs[1], costs[3]
+
+    # Calculate headings
+    vecs = np.flip(path[1:] - path[:-1], axis = 1)
+    dotprod = vecs[:, 0]
+    maga = np.sqrt(vecs[:, 0] * vecs[:, 0] + vecs[:, 1] * vecs[:, 1])
+    costheta = vecs[:, 0] / maga # Should check if div by 0?
+    heading_rad = np.arccos(costheta)
+
+    # Approx distance of each cell
+    hdists_ = hdists / lens
+
+    # Expand path-length variables to cell-length
+    hdists_e = np.hstack([np.zeros(c.shape[0]) + hdists_[i] for i, c in enumerate(cells_)])
+
+    # Estimate elapsed time to reach each cell
+    ela = [(hdists_e[i] / targetSpeed_mps) * i for i in range(cells.shape[0])]
+
+    # Vehicle target velocities
+    xA = targetSpeed_mps * np.cos(heading_rad)
+    yA = targetSpeed_mps * np.sin(heading_rad)
+    xA = np.hstack([np.zeros(c.shape[0]) + xA[i] for i, c in enumerate(cells_)])
+    yA = np.hstack([np.zeros(c.shape[0]) + yA[i] for i, c in enumerate(cells_)])
+
+    # Calculate indices for accessing water current grids
+    rem_idx = np.divmod(ela, interval)
+    p = np.array(cells[:]).astype("int")
+    idx_1 = np.minimum(rem_idx[0], currentsGrid_u.shape[0] - 2).astype("int")
+    idx_2 = idx_1 + 1
+
+    # Interpolate all needed water currents
+    uv_ = np.array(
+        (
+            (currentsGrid_u[idx_1, p[:, 0], p[:, 1]] * np.cos(currentsGrid_v[idx_1, p[:, 0], p[:, 1]])) \
+                * (1 - (rem_idx[1] / interval)) + \
+                    (currentsGrid_u[idx_2, p[:, 0], p[:, 1]]) * np.cos((currentsGrid_v[idx_2, p[:, 0], p[:, 1]])) \
+                        * (rem_idx[1] / interval),
+            (currentsGrid_u[idx_1, p[:, 0], p[:, 1]]) * np.sin((currentsGrid_v[idx_1, p[:, 0], p[:, 1]])) \
+                * (1 - (rem_idx[1] / interval)) + \
+                    (currentsGrid_u[idx_2, p[:, 0], p[:, 1]]) * np.sin((currentsGrid_v[idx_2, p[:, 0], p[:, 1]])) \
+                        * (rem_idx[1] / interval)
+        )
+    ).T
+
+    # Calculate applied force required by vehicle to maintain target velocity
+    cmag = np.sqrt(np.sum(uv_ * uv_, axis = 1))
+    cdir = np.arctan2(uv_[:, 1], uv_[:, 0])
+    xB = cmag * np.cos(cdir)
+    yB = cmag * np.sin(cdir)
+    dV = np.array((xB - xA, yB - yA)).T
+    magaDV = np.power(dV[:, 0] * dV[:, 0] + dV[:, 1] * dV[:, 1], 0.5)
+    dotprod = dV[:, 0]
+    costheta = dotprod / magaDV   # Prob need to check for div by 0 ??
+    dwork = magaDV * hdists_e
+
+    # Work penalty
+    costs[2] = np.sum(dwork)
+
+    return costs[2], costs[0], costs[1], costs[3]
+
+def world2grid(lat, lon, transform, nrow):
+    row = int ((lat - transform[3]) / transform[5])
+    col = int ((lon - transform[0]) / transform[1])
+    return (row, col)
+
+def grid2world(row, col, transform, nrow):
+    lon = transform[1] * col + transform[2] * row + transform[0]
+    lat = transform[4] * col + transform[5] * row + transform[3]
+    return (lat, lon)
+
+def getGridExtent (data):
+    # Source: https://gis.stackexchange.com/a/104367
+    #
+    # data: gdal object
+    cols = data.RasterXSize
+    rows = data.RasterYSize
+    transform = data.GetGeoTransform()
+    minx = transform[0]
+    maxy = transform[3]
+    maxx = minx + transform[1] * cols
+    miny = maxy + transform[5] * rows
+    return { 'minx' : minx, 'miny' : miny, 'maxx' : maxx, 'maxy' : maxy, 'rows' : rows, 'cols' : cols  }
+
+if __name__ == "__main__":
+    ###########
+    # Options #
+    ###########
+
+    parser = OptionParser()
+    # Environment
+    parser.add_option("-r", "--region",
+                      help  = "Path to raster containing occupancy grid (0 -> free space).",
+                      default = "test/inputs/full.tif")
+    parser.add_option("-m", "--map",
+                      help = "Path to save solution path map.",
+                      default = "test/metaplan.png")
+    parser.add_option("-p", "--path",
+                      help = "Path to save solution path.",
+                      default = "test/metaplan.txt")
+    parser.add_option("-u", "--currents_mag",
+                      help = "Path to raster with magnitude of water velocity.",
+                      default = None)
+    parser.add_option("-v", "--currents_dir",
+                      help = "Path to raster with direction of water velocity.",
+                      default = None)
+    parser.add_option(      "--reward",
+                      help = "Path to numpy array (txt) with reward at each cell",
+                      default = None)
+    parser.add_option(      "--sx",
+                      help = "Start longitude.",
+                      default = -70.99428)
+    parser.add_option(      "--sy",
+                      help = "Start latitude.",
+                      default = 42.32343)
+    parser.add_option(      "--dx",
+                      help = "Destination longitude.",
+                      default = -70.88737)
+    parser.add_option(      "--dy",
+                      help = "Destination latitude.",
+                      default = 42.33600)
+    parser.add_option(      "--speed",
+                      help = "Target boat speed (meters/second).",
+                      default = 0.5)
+    parser.add_option(      "--time_offset",
+                      help = "If needed, specify time offset (seconds) from start of water currents raster.",
+                      default = 0, type = "int")
+    parser.add_option(      "--time_interval",
+                      help = "Time (seconds) between bands in water currents raster.",
+                      default = 3600, type = "int")
+    parser.add_option(      "--bounds",
+                      help = "Comma-delimited bounds for region raster i.e. 'ymin,ymax,xmin,xmax'",
+                      default = None)
+    # Optimization parameters
+    parser.add_option("-n", "--num_waypoints",   type = "int", default = 5,
+                      help = "Number of solution waypoints to generate.")
+    parser.add_option(      "--generations",     type = "int", default = 500,
+                      help = "Number of optimization generations.")
+    parser.add_option(      "--pool_size",       type = "int", default = 50,
+                      help = "Number of individuals in optimization pool")
+    parser.add_option(      "--distance_weight", type = "float", default = 1.0,
+                      help = "Weight of distance attribute in fitness.")
+    parser.add_option(      "--force_weight",    type = "float", default = 1.0,
+                      help = "Weight of force attribute in fitness.")
+    parser.add_option(     "--reward_weight",    type = "float", default = 1.0,
+                      help = "Weight of reward attribute in fitness")
+    parser.add_option(     "--hyperparams",
+                      help = "Comma-delimited selection for solver and its options",
+                      default = "pso,0.7298,2.05,2.05")
+    # Get info for a cached path INSTEAD of solving
+    parser.add_option(     "--statpath",
+                      help = "Path to list of waypoints to print path information. Will not solve.",
+                      default = None)
+
+    (options, args) = parser.parse_args()
+
+    # Environment
+    regionRasterFile = options.region
+    mapOutFile = options.map
+    pathOutFile = options.path
+    currentsRasterFile_u = options.currents_mag
+    currentsRasterFile_v = options.currents_dir
+    rewardGridFile = options.reward
+    startPoint = (float(options.sy), float(options.sx))
+    endPoint = (float(options.dy), float(options.dx))
+    targetSpeed_mps = float(options.speed)
+    timeOffset_s = options.time_offset
+    timeInterval_s = options.time_interval
+
+    usingWork = True if currentsRasterFile_u is not None else False
+    usingReward = True if rewardGridFile is not None else False
+
+    # Optimization
+    numWaypoints = options.num_waypoints
+    generations = options.generations
+    poolSize = options.pool_size
+    distanceWeight = options.distance_weight
+    forceWeight = options.force_weight
+    rewardWeight = options.reward_weight
+    weights = (distanceWeight, forceWeight, rewardWeight)
+    hyperparams = options.hyperparams.split(",")
+    for i in range(1, len(hyperparams)):
+        hyperparams[i] = float(hyperparams[i])
+
+    # Cached
+    statPathFile = options.statpath
+
+    print("Using input region raster: {}".format(regionRasterFile))
+    print("  Start:", startPoint)
+    print("    End:", endPoint)
+
+    # Load raster
+    regionData = gdal.Open(regionRasterFile)
+    regionExtent = getGridExtent(regionData)
+    regionTransform = regionData.GetGeoTransform()
+    grid = np.nan_to_num(regionData.GetRasterBand(1).ReadAsArray())
+
+    # Bounds
+    if options.bounds is None:
+        bounds = np.array([0, regionExtent["rows"] - 1, 0, regionExtent["cols"] - 1])
+    else:
+        bounds = np.array(options.bounds.split(",")).astype(int)
+
+    # Read currents rasters
+    elapsedTime = 0
+    bandIndex = 0
+    usingCurrents = False
+    currentsGrid_u = currentsGrid_v = currentsTransform_u = currentsTransform_v = None
+    rewardGrid = None
+    if currentsRasterFile_u is not None and currentsRasterFile_v is not None:
+        bandIndex = 1
+
+        # Load force magnitudes
+        currentsData_u = gdal.Open(currentsRasterFile_u)
+        currentsExtent_u = getGridExtent(currentsData_u)
+        currentsTransform_u = currentsData_u.GetGeoTransform()
+        currentsGrid_u = np.nan_to_num(raster2array(currentsData_u))
+
+        # Load force directions
+        currentsData_v = gdal.Open(currentsRasterFile_v)
+        currentsExtent_v = getGridExtent(currentsData_v)
+        currentsTransform_v = currentsData_v.GetGeoTransform()
+        currentsGrid_v = np.nan_to_num(raster2array(currentsData_v))
+
+        # Sanity check that the current mag, dir rasters match
+        if currentsExtent_u["rows"] != currentsExtent_v["rows"] or \
+                currentsExtent_u["cols"] != currentsExtent_v["cols"]:
+            print("[-] Spatial extent mismatch between currents u, v")
+            exit(-1)
+
+        usingCurrents = True
+        print("Incorporating forces into energy cost:")
+        print("  u: {}".format(currentsRasterFile_u))
+        print("  v: {}".format(currentsRasterFile_v))
+
+    # Read reward matrix
+    usingReward = False
+    if rewardGridFile is not None:
+        rewardGrid = np.loadtxt(rewardGridFile)
+
+    # Convert latlon -> rowcol
+    start = world2grid(startPoint[0], startPoint[1], regionTransform, regionExtent["rows"])
+    end = world2grid(endPoint[0], endPoint[1], regionTransform, regionExtent["rows"])
+
+    # Calculate pixel distance
+    s = grid2world(0, 0, regionTransform, regionExtent["rows"])
+    e = grid2world(0, regionExtent["cols"], regionTransform, regionExtent["rows"])
+    dist_m = haversine(s, e) * 1000
+    pixelsize_m = dist_m / regionExtent["cols"]
+
+    if statPathFile is None:
+        # Solve
+        print("Begin solving")
+        prob = pg.problem(solvePath(start, end, grid, targetSpeed_mps = targetSpeed_mps,
+                waypoints = numWaypoints, bounds = bounds, weights = weights,
+                currentsGrid_u = currentsGrid_u, currentsGrid_v = currentsGrid_v,
+                currentsTransform = currentsTransform_u, regionTransform = regionTransform,
+                rewardGrid = rewardGrid,
+                timeIn = timeOffset_s, interval = timeInterval_s, pixelsize_m = pixelsize_m))
+        algo = pg.algorithm(pg.pso(gen = generations,
+                                   omega = hyperparams[1], eta1 = hyperparams[2], eta2 = hyperparams[3]))
+        algo.set_verbosity(10)
+        pop = pg.population(prob, poolSize)
+        #archi = pg.archipelago(n = 5,
+        #    algo = algo, prob = prob, pop_size = poolSize)
+        t0 = time.time()
+        pop = algo.evolve(pop)
+        #archi.evolve()
+        #archi.wait()
+        t1 = time.time()
+
+        # Extract best solution
+        x = pop.champion_x
+        fitness = pop.champion_f
+
+        # Solution information
+        work = 0
+        path = np.zeros((numWaypoints + 2, 2)).astype(int)
+        path[0, :] = np.array(start).astype(int)
+        path[numWaypoints + 1, :] = np.array(end).astype(int)
+        path[1:numWaypoints + 1, 0] = x[::2].astype(int)
+        path[1:numWaypoints + 1, 1] = x[1::2].astype(int)
+
+        print("Done solving with {alg}, {s} seconds".format(alg = hyperparams[0], s = t1 - t0))
+    else:
+        path = np.loadtxt(statPathFile, delimiter=',').astype(int)
+
+    # Path information
+    pathlen = len(path)
+    work, dist, obs, reward = calcWork(path, pathlen, grid, targetSpeed_mps,
+                               currentsGrid_u, currentsGrid_v, regionTransform, regionTransform,
+                               rewardGrid, timeOffset_s, timeInterval_s, pixelsize_m)
+
+    # Haversine distance
+    path_distance = 0
+    prev_point = path[0]
+    for point in path[1:]:
+        prev_latlon = grid2world(prev_point[0], prev_point[1], regionTransform, regionExtent["rows"])
+        point_latlon = grid2world(point[0], point[1], regionTransform, regionExtent["rows"])
+        path_distance += haversine(prev_latlon, point_latlon)
+        prev_point = point
+    path_duration = (path_distance * 1000 / targetSpeed_mps) / 60
+
+    if usingCurrents:
+        print("Planning results (with currents):")
+    else:
+        print("Planning results (no currents):")
+    print('    Distance: {:.4f} km'.format(path_distance))
+    print('    Duration: {:.4f} min'.format(path_duration))
+    print('    Cost: {:.4f}'.format(work))
+    print('    Reward: {:.4f}'.format(reward))
+    #print('    Fitness: ', fitness[0])
+
+    # Plot solution path
+    lats = np.zeros(pathlen)
+    lons = np.zeros(pathlen)
+    for i in range(pathlen):
+        lats[i] = path[i][0]
+        lons[i] = path[i][1]
+    fig, ax = plt.subplots(nrows=1, ncols=1)
+    ax.set_ylim(0, regionExtent["rows"])
+    ax.set_xlim(0, regionExtent["cols"])
+    ax.set_facecolor('xkcd:lightblue')
+    plt.imshow(grid, cmap=plt.get_cmap('gray'))
+    plt.plot(lons, lats, '--')
+    plt.plot(lons[0], lats[0], 'ro')
+    plt.plot(lons[-1], lats[-1], 'rv')
+    ax.set_ylim(ax.get_ylim()[::-1])
+    if (rewardGridFile is not None):
+        plt.imshow(rewardGrid, alpha = 0.75)
+    plt.savefig(mapOutFile)
+    np.savetxt(pathOutFile, path, delimiter=',')
