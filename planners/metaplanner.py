@@ -11,6 +11,7 @@ import bresenham
 import osgeo.gdalnumeric as gdn
 import time
 import pygmo as pg
+from itertools import repeat
 from haversine import haversine
 
 def haversine_np(lon1, lat1, lon2, lat2):
@@ -391,12 +392,11 @@ if __name__ == "__main__":
                                    omega = hyperparams[1], eta1 = hyperparams[2], eta2 = hyperparams[3]))
         algo.set_verbosity(10)
 
-        # Init population (random)
-        pop = pg.population(prob, poolSize)
-
-        # Load initial population from file
+        # Generate initial population
         if initPopFile is not None:
-            from itertools import repeat
+            # Load initial population from file
+            pop = pg.population(prob, 0) # Ignore pool_size; filling population from file
+
             # Read file
             with open(initPopFile) as f:
                 lines = [line.rstrip() for line in f]
@@ -410,11 +410,12 @@ if __name__ == "__main__":
                 for rep in repeat([nums[-2], nums[-1]], numWaypoints - int(len(nums) / 2)):
                     nums.extend(rep)
                 initPaths.append(nums[:numWaypoints * 2])
-                initPaths.append(nums[:numWaypoints * 2])
-                initPaths.append(nums[:numWaypoints * 2])
 
             for ip in initPaths:
                 pop.push_back(x = ip)
+        else:
+            # Randomly initial population
+            pop = pg.population(prob, poolSize)
 
         # Begin solving
         t0 = time.time()
