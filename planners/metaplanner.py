@@ -7,11 +7,33 @@ from optparse import OptionParser
 import dill as pickle
 from math import acos, cos, sin, ceil, floor, atan2
 from osgeo import gdal
-from bresenham import bresenham
+import bresenham
 import osgeo.gdalnumeric as gdn
-from haversine import haversine
 import time
 import pygmo as pg
+from haversine import haversine
+
+def haversine_np(lon1, lat1, lon2, lat2):
+    """
+    Calculate the great circle distance between two points
+    on the earth (specified in decimal degrees)
+
+    All args must be of equal length.
+
+    Source: stackoverflow user, derricw
+    Link: https://stackoverflow.com/a/29546836
+    License: CC BY-SA 4.0
+    """
+    lon1, lat1, lon2, lat2 = map(np.radians, [lon1, lat1, lon2, lat2])
+
+    dlon = lon2 - lon1
+    dlat = lat2 - lat1
+
+    a = np.sin(dlat/2.0)**2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon/2.0)**2
+
+    c = 2 * np.arcsin(np.sqrt(a))
+    km = 6367 * c
+    return km
 
 class solvePath:
     def __init__(self, start, end, grid, targetSpeed_mps = 1, bounds = None,
@@ -75,93 +97,91 @@ def calcWork(path, n, regionGrid, targetSpeed_mps = 1, currentsGrid_u = None, cu
     '''
     This function calculates cost to move vehicle along path
     '''
-    pDist = np.zeros(n)
-    pObs = np.zeros(n)
-    pWork = np.zeros(n)
-    pRew = np.zeros(n)
 
-     # Estimate elapsed time, temporal raster band
-    elapsed = float(timeIn)
-    (index, rem) = divmod(elapsed, interval)
-    if currentsGrid_u is not None:
-        index = min(floor(index), currentsGrid_u.shape[0] - 2)
+    # Initialize costs: distance, obstacles, work, reward
+    costs = np.zeros(4)
 
-    v = path[0]
-    for i in range(1, n):
-        w = path[i]
+    # Get all cells along path
+    cells_ = np.array([bresenham.bresenhamline(np.array([path[i]]),
+                                               np.array([path[i + 1]])) for i, p in enumerate(path[:-1])])
+    # Number of cells in each path segment
+    lens = np.array([len(c) for c in cells_])
+    cells = np.vstack(cells_)
 
-        # Heading
-        vecs = (w[1] - v[1], w[0] - v[0])
-        dotprod = vecs[0] * 1 + vecs[1] * 0
-        maga = pow(vecs[0] * vecs[0] + vecs[1] * vecs[1], 0.5)
-        heading_rad = 0.0
-        if (maga != 0):
-            costheta = dotprod / maga
-            heading_rad = acos(costheta)
+    # Obstacle penalty
+    costs[1] = np.sum((grid[cells[:, 0], cells[:, 1]]))
 
-        # Distance
-        v_latlon = grid2world(v[0], v[1], regionTransform, regionExtent["rows"])
-        w_latlon = grid2world(w[0], w[1], regionTransform, regionExtent["rows"])
-        hdist = haversine(v_latlon, w_latlon) * 1000
+    # Points in (lon, lat)
+    lonlat = np.vstack((regionTransform[1] * path[:, 1] + regionTransform[2] * path[:, 0] + regionTransform[0],
+                        regionTransform[4] * path[:, 1] + regionTransform[5] * path[:, 0] + regionTransform[3])).T
 
-        b = list(bresenham(v[0], v[1], w[0], w[1]))
-        p = np.array(b[:]).astype("int")
-        hdist_ = hdist / len(b)
+    # Haversine distances, converted from km to meters
+    hdists = haversine_np(lonlat[:-1][:, 0], lonlat[:-1][:, 1], lonlat[1:][:, 0], lonlat[1:][:, 1]) * 1000
+    # Distance penalty
+    costs[0] = sum(hdists)
 
-        # Sum obstacles
-        # Note: has error where all elems in 'pObs' get incremented...
-        # ... but left alone since working well (more obstacle sensitive)
-        pObs += sum(grid[p[:, 0], p[:, 1]])
+    # If no water currents, return now
+    if currentsGrid_u is None:
+        costs[2] = costs[0]
+        return costs[2], costs[0], costs[1], costs[3]
 
-        # Sum rewards
-        if rewardGrid is not None:
-            pRew[i] += sum(rewardGrid[p[:, 0], p[:, 1]])
+    # Calculate headings
+    vecs = np.flip(path[1:] - path[:-1], axis = 1)
+    dotprod = vecs[:, 0]
+    maga = np.sqrt(vecs[:, 0] * vecs[:, 0] + vecs[:, 1] * vecs[:, 1])
+    costheta = vecs[:, 0] / maga # Should check if div by 0?
+    heading_rad = np.arccos(costheta)
 
-        # Calc work to oppose forces
-        if currentsGrid_u is not None and currentsGrid_v is not None:
+    # Approx distance of each cell
+    hdists_ = hdists / lens
 
-            # Vehicle target velocity
-            xA = targetSpeed_mps * cos(heading_rad)
-            yA = targetSpeed_mps * sin(heading_rad)
+    # Expand path-length variables to cell-length
+    hdists_e = np.hstack([np.zeros(c.shape[0]) + hdists_[i] for i, c in enumerate(cells_)])
 
-            ela = np.array([(hdist_ / targetSpeed_mps) * i + elapsed for i in range(len(b))])
-            # vectorized?
-            idx_rem = np.divmod(ela, interval)
-            idx_1 = np.minimum(idx_rem[0], currentsGrid_u.shape[0] - 2).astype("int")
-            idx_2 = idx_1 + 1
+    # Estimate elapsed time to reach each cell
+    ela = [(hdists_e[i] / targetSpeed_mps) * i for i in range(cells.shape[0])]
 
+    # Vehicle target velocities
+    xA = targetSpeed_mps * np.cos(heading_rad)
+    yA = targetSpeed_mps * np.sin(heading_rad)
+    xA = np.hstack([np.zeros(c.shape[0]) + xA[i] for i, c in enumerate(cells_)])
+    yA = np.hstack([np.zeros(c.shape[0]) + yA[i] for i, c in enumerate(cells_)])
 
-            uv_ = np.array(
-                (
-                    (currentsGrid_u[idx_1, p[:, 0], p[:, 1]] * np.cos(currentsGrid_v[idx_1, p[:, 0], p[:, 1]])) \
-                        * (1 - (idx_rem[1] / interval)) + \
-                            (currentsGrid_u[idx_2, p[:, 0], p[:, 1]]) * np.cos((currentsGrid_v[idx_2, p[:, 0], p[:, 1]])) \
-                                * (idx_rem[1] / interval),
-                    (currentsGrid_u[idx_1, p[:, 0], p[:, 1]]) * np.sin((currentsGrid_v[idx_1, p[:, 0], p[:, 1]])) \
-                        * (1 - (idx_rem[1] / interval)) + \
-                            (currentsGrid_u[idx_2, p[:, 0], p[:, 1]]) * np.sin((currentsGrid_v[idx_2, p[:, 0], p[:, 1]])) \
-                                * (idx_rem[1] / interval)
-                )
-            ).T
+    # Calculate indices for accessing water current grids
+    rem_idx = np.divmod(ela, interval)
+    p = np.array(cells[:]).astype("int")
+    idx_1 = np.minimum(rem_idx[0], currentsGrid_u.shape[0] - 2).astype("int")
+    idx_2 = idx_1 + 1
 
-            cmag = np.sqrt(np.sum(uv_ * uv_, axis = 1))
-            cdir = np.arctan2(uv_[:, 1], uv_[:, 0])
-            xB = cmag * np.cos(cdir)
-            yB = cmag * np.sin(cdir)
-            dV = np.array((xB - xA, yB - yA)).T
-            magaDV = np.power(dV[:, 0] * dV[:, 0] + dV[:, 1] * dV[:, 1], 0.5)
-            dotprod = dV[:, 0]
-            costheta = dotprod / magaDV   # Prob need to check for div by 0 ??
-            dwork = magaDV * hdist_
+    # Interpolate all needed water currents
+    uv_ = np.array(
+        (
+            (currentsGrid_u[idx_1, p[:, 0], p[:, 1]] * np.cos(currentsGrid_v[idx_1, p[:, 0], p[:, 1]])) \
+                * (1 - (rem_idx[1] / interval)) + \
+                    (currentsGrid_u[idx_2, p[:, 0], p[:, 1]]) * np.cos((currentsGrid_v[idx_2, p[:, 0], p[:, 1]])) \
+                        * (rem_idx[1] / interval),
+            (currentsGrid_u[idx_1, p[:, 0], p[:, 1]]) * np.sin((currentsGrid_v[idx_1, p[:, 0], p[:, 1]])) \
+                * (1 - (rem_idx[1] / interval)) + \
+                    (currentsGrid_u[idx_2, p[:, 0], p[:, 1]]) * np.sin((currentsGrid_v[idx_2, p[:, 0], p[:, 1]])) \
+                        * (rem_idx[1] / interval)
+        )
+    ).T
 
-            elapsed = ela[-1] + (hdist_ / targetSpeed_mps)
-        pDist[i] = hdist #distance
-        # If no currents, "work"" is just the distance
-        pWork[i] =  sum(dwork) if currentsGrid_u is not None else hdist
+    # Calculate applied force required by vehicle to maintain target velocity
+    cmag = np.sqrt(np.sum(uv_ * uv_, axis = 1))
+    cdir = np.arctan2(uv_[:, 1], uv_[:, 0])
+    xB = cmag * np.cos(cdir)
+    yB = cmag * np.sin(cdir)
+    dV = np.array((xB - xA, yB - yA)).T
+    magaDV = np.power(dV[:, 0] * dV[:, 0] + dV[:, 1] * dV[:, 1], 0.5)
+    dotprod = dV[:, 0]
+    costheta = dotprod / magaDV   # Prob need to check for div by 0 ??
+    dwork = magaDV * hdists_e
 
-        # Next waypoint is now current
-        v = w
-    return sum(pWork), sum(pDist), sum(pObs), sum(pRew)
+    # Work penalty
+    costs[2] = np.sum(dwork)
+
+    return costs[2], costs[0], costs[1], costs[3]
 
 def world2grid(lat, lon, transform, nrow):
     row = int ((lat - transform[3]) / transform[5])
@@ -255,6 +275,9 @@ if __name__ == "__main__":
     parser.add_option(     "--statpath",
                       help = "Path to list of waypoints to print path information. Will not solve.",
                       default = None)
+    # Optional, population initialization
+    parser.add_option(     "--init_pop",
+                      help = "Path to file with initial population paths.")
 
     (options, args) = parser.parse_args()
 
@@ -288,6 +311,9 @@ if __name__ == "__main__":
 
     # Cached
     statPathFile = options.statpath
+
+    # Initial population
+    initPopFile = options.init_pop
 
     print("Using input region raster: {}".format(regionRasterFile))
     print("  Start:", startPoint)
@@ -361,9 +387,36 @@ if __name__ == "__main__":
                 currentsTransform = currentsTransform_u, regionTransform = regionTransform,
                 rewardGrid = rewardGrid,
                 timeIn = timeOffset_s, interval = timeInterval_s, pixelsize_m = pixelsize_m))
-        algo = pg.algorithm(pg.pso(gen = generations, omega = hyperparams[1], eta1 = hyperparams[2], eta2 = hyperparams[3]))
+        algo = pg.algorithm(pg.pso(gen = generations,
+                                   omega = hyperparams[1], eta1 = hyperparams[2], eta2 = hyperparams[3]))
         algo.set_verbosity(10)
+
+        # Init population (random)
         pop = pg.population(prob, poolSize)
+
+        # Load initial population from file
+        if initPopFile is not None:
+            from itertools import repeat
+            # Read file
+            with open(initPopFile) as f:
+                lines = [line.rstrip() for line in f]
+                lines.reverse()
+
+            # Process each line
+            initPaths = []
+            for line in lines:
+                line = line.replace(";", ",").replace("(", "").replace(")", "")
+                nums = [int(l) for l in line.split(",")][2:-2]
+                for rep in repeat([nums[-2], nums[-1]], numWaypoints - int(len(nums) / 2)):
+                    nums.extend(rep)
+                initPaths.append(nums[:numWaypoints * 2])
+                initPaths.append(nums[:numWaypoints * 2])
+                initPaths.append(nums[:numWaypoints * 2])
+
+            for ip in initPaths:
+                pop.push_back(x = ip)
+
+        # Begin solving
         t0 = time.time()
         pop = algo.evolve(pop)
         t1 = time.time()

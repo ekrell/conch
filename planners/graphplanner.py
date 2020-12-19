@@ -11,7 +11,6 @@ from math import acos, cos, sin, ceil, floor, atan2
 from bresenham import bresenham
 import osgeo.gdalnumeric as gdn
 from haversine import haversine
-import pyvisgraph as vg
 import time
 
 def world2grid (lat, lon, transform, nrow):
@@ -266,7 +265,7 @@ def main():
             help = "Path to raster containing binary occupancy region (0 -> free space),",
             default = "test/inputs/full.tif")
     parser.add_option("-g", "--graph",
-            help = "Path to uniform graph.",
+            help = "Path to graph.",
             default = "test/outputs/uni-4.pickle")
     parser.add_option("-m", "--map",
             help = "Path to save solution path map.",
