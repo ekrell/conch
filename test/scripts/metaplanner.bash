@@ -38,7 +38,7 @@ SPEEDS="0.5 5"
 GENS="500"
 POOLS="100"
 WAYPOINTS="5"
-TRIALS="1 2 3"
+TRIALS="1 2 3 4 5 6 7 8 9 10"
 
 rm $DIR/cmds.txt
 for p in $PATHS; do
