@@ -8,7 +8,7 @@ from optparse import OptionParser
 import matplotlib.pyplot as plt
 from math import acos, cos, sin, ceil, floor, atan2
 import bresenham
-from haversine import haversine
+import haversine
 
 def grid2world(row, col, transform, nrow):
     lon = transform[1] * col + transform[2] * row + transform[0]
@@ -192,7 +192,7 @@ def calcWork(v, w, currentsGrid_u, currentsGrid_v, targetSpeed_mps, geotransform
         if distMeas == "haversine":
             v_latlon = grid2world(v[0], v[1], geotransform, rows)
             w_latlon = grid2world(w[0], w[1], geotransform, rows)
-            hdist = haversine(v_latlon, w_latlon) * 1000
+            hdist = haversine.haversine(v_latlon, w_latlon) * 1000
         elif distMeas == "euclidean-scaled":
             hdist = pow((pow(v[0] - w[0], 2) + pow(v[1] - w[1], 2)), 0.5) * pixelsize_m
         elif distMeas == "euclidean":
