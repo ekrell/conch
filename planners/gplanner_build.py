@@ -148,13 +148,13 @@ occupied = 1
 parser = OptionParser()
 parser.add_option("-r", "--region",
         help = "Path to raster containing binary occupancy region (1 -> obstacle, 0 -> free)",
-        default = "test/full.tif")
+        default = "test/inputs/full.tif")
 parser.add_option("-g", "--graph",
         help = "Path to save graph",
-        default = "test/uni.pickle")
+        default = "uni.pickle")
 parser.add_option("-m", "--map",
         help = "Path to save graph map",
-        default = "test/uni.png")
+        default = "uni.png")
 parser.add_option("-n", "--nhood_type",
         help = "Neighborhood type (4, 8, or 16).",
         default = 4)

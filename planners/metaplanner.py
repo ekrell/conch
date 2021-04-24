@@ -112,6 +112,10 @@ def calcWork(path, n, regionGrid, targetSpeed_mps = 1, currentsGrid_u = None, cu
     # Obstacle penalty
     costs[1] = np.sum((grid[cells[:, 0], cells[:, 1]]))
 
+    # Reward
+    if rewardGrid is not None:
+        costs[3] = np.sum((rewardGrid[cells[:, 0], cells[:, 1]]))
+
     # Points in (lon, lat)
     lonlat = np.vstack((regionTransform[1] * path[:, 1] + regionTransform[2] * path[:, 0] + regionTransform[0],
                         regionTransform[4] * path[:, 1] + regionTransform[5] * path[:, 0] + regionTransform[3])).T

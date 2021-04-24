@@ -7,7 +7,7 @@ import time
 from optparse import OptionParser
 import matplotlib.pyplot as plt
 from math import acos, cos, sin, ceil, floor, atan2
-from bresenham import bresenham
+import bresenham
 from haversine import haversine
 
 def grid2world(row, col, transform, nrow):
@@ -145,7 +145,7 @@ def getNeighbors(i, m, n, env, ntype = 4):
                 B.append((i[0] + 1, i[1] + 2))
     return B
 
-def statPath(path, currentsGrid_u, currentsGrid_v, geotransform, targetSpeed_mps, timeIn = 0, interval = 3600, pixelsize_m = 1):
+def statPath(path, currentsGrid_u=None, currentsGrid_v=None, geotransform=None, targetSpeed_mps=None, timeIn = 0, interval = 3600, pixelsize_m = 1):
     v = path[0]
     n = len(path)
 
@@ -200,7 +200,8 @@ def calcWork(v, w, currentsGrid_u, currentsGrid_v, targetSpeed_mps, geotransform
 
         # Work
         work = 0
-        b = list(bresenham(v[0], v[1], w[0], w[1]))
+        print(v, w)
+        b = list(bresenham.bresenhamline(np.array([v]), np.array([w])))
         hdist_ = hdist / len(b)
 
         for p in b[:]:
@@ -374,7 +375,8 @@ def main():
 
     parser = OptionParser()
     parser.add_option("-g", "--grid",
-                      help = "Path to ascii binary occupancy grid (nonzero = obstacle).")
+                      help = "Path to ascii binary occupancy grid (nonzero = obstacle).",
+                      default = "test/inputs/sample_ascii_map_1.txt")
     parser.add_option("-u", "--currents_mag",
                       help = "Path to grid with magnitude of water velocity.",
                       default = None)
@@ -395,15 +397,16 @@ def main():
                       default = 29)
     parser.add_option("-n", "--nhood_type",
                       help = "Neighborhood type (4, 8, or 16).",
-                      default = 4)
+                      default = 16)
+    parser.add_option("-p", "--path",
+                      help = "Path to save solution path")
+    parser.add_option("-m", "--map",
+                      help = "Path to save solution path map")
     parser.add_option(      "--solver",
                       help = "Path finding algorithm (A*, dijkstra).",
                       default = "dijkstra")
     parser.add_option(      "--trace",
                       help = "Path to save map of solver's history. Shows which cells were evaluated.",
-                      default = None)
-    parser.add_option(      "--statpath",
-                      help = "Path to list of waypoints to print path information. Will not solve.",
                       default = None)
 
     (options, args) = parser.parse_args()
@@ -422,10 +425,16 @@ def main():
     traceOutFile = options.trace
     if options.trace is not None:
         trace = True
-    statPathFile = options.statpath
+
+    pathOutFile = options.path
+    mapOutFile = options.map
 
     # Load occupancy grid from comma-delimited ASCII file
-    grid = np.loadtxt(gridFile, delimiter = ",")
+    try:
+        grid = np.loadtxt(gridFile, delimiter = ",").astype(int)
+    except:
+        print("Unable to open file: {}\nExiting...".format(gridFile))
+        exit(1)
     # Binarize grid
     grid[grid > 0] = 1
     rows, cols = grid.shape
@@ -435,7 +444,18 @@ def main():
     print("  Start:", start)
     print("  End:", goal)
 
+    if start[0] < 0 or start[0] >= rows \
+            or start[1] < 0 or start[1] >= cols:
+        print("Start outside grid bounds\nExiting...")
+        exit(1)
+    if goal[0] < 0 or goal[0] >= rows \
+            or goal[1] < 0 or goal[1] >= cols:
+        print("End outside grid bounds\nExiting...")
+        exit(1)
+
     usingCurrents = False
+    currentsGrid_u = None
+    currentsGrid_v = None
     # Load water currents grids from
     if currentsGridFile_u is not None:
         currentsGrid_u = np.loadtxt(currentsGridFile_u, delimiter = ",")
@@ -464,27 +484,41 @@ def main():
 
     # Solve
     t0 = time.time()
-    # Just stat existing path?
-    if statPathFile is not None:
-        path = np.loadtx(statPathFile, delimiter = ",")
-        statPath(path, currentsGrid_u, currentsGrid_v, targetSpeed_mps, pixelsize_m = pixelsize_m)
-
-    else: # Solve -> generate newpath
-        if usingCurrents:
-            if solver == "a*":
-                path, traceGrid, T, C  = solve(grid, start, goal, solver = solver_id, ntype = ntype, trace = trace,
-                                        currentsGrid_u = currentsGrid_u, currentsGrid_v = currentsGrid_v)
-        else:
-            path, traceGrid, T, C = solve(grid, start, goal, ntype = ntype, trace = trace)
+    if usingCurrents:
+        path, traceGrid, T, C  = solve(grid, start, goal, solver = solver_id, ntype = ntype, trace = trace,
+                                       currentsGrid_u = currentsGrid_u, currentsGrid_v = currentsGrid_v, distMeas = "euclidean")
+    else:
+        path, traceGrid, T, C = solve(grid, start, goal, ntype = ntype, trace = trace, distMeas = "euclidean")
     t1 = time.time()
     print("Done solving with {s}, {t} seconds".format(s = solver, t = t1 - t0))
     print("Cost: {c}".format(c = C))
+
+    # Write path
+    if pathOutFile is not None:
+        np.savetxt(pathOutFile, path, delimiter = ",", fmt = "%d")
 
     # Visualize
     # Trace solver
     if trace:
         plt.imshow(traceGrid, cmap = "Greys")
         plt.show()
+
+    plt.clf()
+    path = np.array(path)
+    gridcopy = grid * 255
+    for p in path:
+        gridcopy[p[0], p[1]] = 128
+    plt.imshow(gridcopy)
+    plt.plot(np.array(path)[:,1], np.array(path)[:,0], linestyle="dashed", color="tab:orange")
+    plt.scatter([start[1]], [start[0]], color="tab:orange", s = 200, marker="H")
+    plt.scatter([goal[1]], [goal[0]], color="tab:red", s = 200, marker="X")
+
+    if mapOutFile is not None:
+        plt.savefig(mapOutFile)
+    else:
+        plt.show()
+
+
 
 if __name__ == '__main__':
     main()
