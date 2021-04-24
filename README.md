@@ -28,6 +28,8 @@ Tools are classified as either _builders_ or _solvers_, both being part of the p
 
 ## Planners
 
+- `gridplanner.py`: Uses Dijkstra or A* to plan on an ascii map. Water currents may be provided, but it is not geospatial-aware and will use Euclidean distance.
+- `rasterplanner.py`: Uses Dijkstra or A* to plan on a GeoTiff. Planning incorporates work minimization.
 - `metaplanner.py`: Metaheuristic planning on a raster map that incorporates work minimization and reward maximization. User's choice of metaheuristic algorithm; default is particle swarm optimization. 
 - `gplanner_solve.py`: Graph-based planning with either Dijkstra or A* (input graph is a Python dictionary).
 
@@ -39,6 +41,17 @@ Tools are classified as either _builders_ or _solvers_, both being part of the p
     - DOI: 10.13140/RG.2.2.30318.56640
 
 # Quick start tutorials
+
+### Installation
+
+    # Clone the repo
+    git clone https://github.com/ekrell/conch.git
+    
+    # Get dependencies
+    sudo apt update
+    sudo apt install gdal-bin
+    sudo apt install python3-gdal
+    pip3 install haversine numpy matplotlib dill pyvisgraph pandas pygmo rasterio shapely geopandas pyshp fiona
 
 ### Metaheuristic path planning with `metaplanner.py`
 
