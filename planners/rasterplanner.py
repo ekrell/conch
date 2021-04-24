@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from optparse import OptionParser
 from osgeo import gdal
-from haversine import haversine
+import haversine
 import osgeo.gdalnumeric as gdn
 import time
 
@@ -172,7 +172,7 @@ end = world2grid(endPoint[0], endPoint[1], regionTransform, regionExtent["rows"]
 # Calculate pixel distance
 s = grid2world(0, 0, regionTransform, regionExtent["rows"])
 e = grid2world(0, 1, regionTransform, regionExtent["rows"])
-dist_m = haversine(s, e) * 1000
+dist_m = haversine.haversine(s, e) * 1000
 pixelsize_m = dist_m
 print(pixelsize_m)
 
@@ -208,7 +208,7 @@ prev_point = path[0]
 for point in path[1:]:
     prev_latlon = grid2world(prev_point[0], prev_point[1], regionTransform, regionExtent["rows"])
     point_latlon = grid2world(point[0], point[1], regionTransform, regionExtent["rows"])
-    path_distance += haversine(prev_latlon, point_latlon)
+    path_distance += haversine.haversine(prev_latlon, point_latlon)
     prev_point = point
 path_duration = (path_distance * 1000 / targetSpeed_mps) / 60
 
