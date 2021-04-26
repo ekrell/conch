@@ -1,13 +1,16 @@
 #!/usr/bin/python
-
-# Typical modules
 from optparse import OptionParser
-# Geographic modules
 from osgeo import gdal
-# Conch modules
-import gridUtils as GridUtil
-import rasterSetInterface as rsi
 
+def world2grid (lat, lon, transform, nrow):
+    row = int ((lat - transform[3]) / transform[5])
+    col = int ((lon - transform[0]) / transform[1])
+    return (row, col)
+
+def grid2world (row, col, transform, nrow):
+    lon = transform[1] * col + transform[2] * row + transform[0]
+    lat = transform[4] * col + transform[5] * row + transform[3]
+    return (lat, lon)
 
 def main():
     # Options
@@ -52,12 +55,12 @@ def main():
     # Perform position conversion
     if rowcol2latlon:
         (row, col) = (options.row, options.col)
-        (lat, lon) = GridUtil.grid2world(options.row, options.col,
-                                         transform, grid.shape[0])
+        (lat, lon) = grid2world(options.row, options.col,
+                                transform, grid.shape[0])
     else:
         (lat, lon) = (options.lat, options.lon)
-        (row, col) = GridUtil.grid2world(options.lat, options.lon,
-                                         transform, grid.shape[0])
+        (row, col) = world2grid(options.lat, options.lon,
+                                transform, grid.shape[0])
 
     # Print coordinates
     print("(row, col) : ({}, {}) <---> (lat, lon) : ({}, {})".format(row, col, lat, lon))

@@ -310,7 +310,7 @@ def solve(grid, start, goal, solver = 0, ntype = 4, trace = False,
 
             if distMeas == "haversine":
                 n_latlon = grid2world(next[0], next[1], geotransform, rows)
-                dist = haversine(c_latlon, n_latlon) * 1000
+                dist = haversine.haversine(c_latlon, n_latlon) * 1000
             elif distMeas == "euclidean-scaled":
                 dist = pow((pow(current[0] - next[0], 2) + pow(current[1] - next[1], 2)), 0.5) * pixelsize_m
             elif distMeas == "euclidean":
