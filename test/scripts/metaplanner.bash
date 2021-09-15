@@ -12,7 +12,7 @@ if [[ $CHUNKS != *[!\ ]*   ]]; then
 fi
 
 PREFIX="python3 planners/metaplanner.py -r test/inputs/full.tif"
-DIR="test/outputs/metaplanner/"
+DIR="test/outputs/metaplanner_10kgens/"
 
 # Start-goal path scenarios
 PATH_1="--sy 42.32343 --sx -70.99428 --dy 42.33600 --dx -70.88737"
@@ -35,7 +35,7 @@ works=("$WORK_0" "$WORK_1" "$WORK_2" "$WORK_3" "$WORK_4")
 PATHS="0 1 2"
 WORKS="0 1 2 3 4"
 SPEEDS="0.5 5"
-GENS="500"
+GENS="2500"
 POOLS="100"
 WAYPOINTS="5"
 TRIALS="1 2 3 4 5 6 7 8 9 10"
