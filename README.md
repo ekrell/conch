@@ -1,12 +1,6 @@
 # conch
 Path planning for unmanned surface vehicles subject to environmental forces. 
 
-# Notice
-
-Because of several large files, `test/` is now in `.gitignore`, which includes input files and experiment runs. 
-Soon I will host the data separately, and include a `wget` step to pull the data after cloning the repo. 
-Maybe I will keep the input files in the repo and only store outputs separately, since most users won't need those
-
 # Overview
 
 This repo contains multiple tools for unmanned surface vehicle path planning. 
