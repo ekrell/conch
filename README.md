@@ -91,21 +91,21 @@ The VG is used to quickly generate a set of initial candidate solution paths to 
 
         # Solve 
         python3 planners/metaplanner.py \
-            -r $INDIR/full.tif \                  # Input occupancy grid raster (GeoTiff)
+            -r $INDIR/full.tif \                     # Input occupancy grid raster (GeoTiff)
             --currents_mag $INDIR/20170503_magwater.tiff \  # Water currents magnitudes raster (GeoTiff)
             --currents_dir $INDIR/20170503_dirwater.tiff \  # Water currents directions raster (GeoTiff)
-            --sy 42.32343 \                       # Start y coord (latitude)
-            --sx -70.99428 \                      # Start x coord (longitude)
-            --dy 42.33600 \                       # Goal y coord (latitude)
-            --dx -70.88737                        # Goal x coord (longitude)
-            --speed 0.5 \                         # Constant target boat speed
-            --generations 500 \                   # PSO generations
-            --pool_size 100 \                     # PSO pool size
-            --num_waypoints 5 \                   # Number of waypoints in PSO solution
-            --init_pop $OUTDIR/sample_initpop.txt # Input initial population paths
-            --map $OUTDIR/sample_pso_path.png \   # Output figure of solution path
-            --path $OUTDIR/sample_pso_path.txt \  # Output path waypoints
-            > $OUTDIR/sample_pso_stats.out        # Output path information 
+            --sy 42.32343 \                          # Start y coord (latitude)
+            --sx -70.99428 \                         # Start x coord (longitude)
+            --dy 42.33600 \                          # Goal y coord (latitude)
+            --dx -70.88737 \                         # Goal x coord (longitude)
+            --speed 0.5 \                            # Constant target boat speed
+            --generations 500 \                      # PSO generations
+            --pool_size 100 \                        # PSO pool size
+            --num_waypoints 5 \                      # Number of waypoints in PSO solution
+            --init_pop $OUTDIR/sample_initpop.txt \  # Input initial population paths
+            --map $OUTDIR/sample_pso_path.png \      # Output figure of solution path
+            --path $OUTDIR/sample_pso_path.txt \     # Output path waypoints
+            > $OUTDIR/sample_pso_stats.out           # Output path information 
 
 
 ### Particle Swarm Optimization
@@ -128,7 +128,7 @@ The PSO initial population is randomly generated.
             --sy 42.32343 \                       # Start y coord (latitude)
             --sx -70.99428 \                      # Start x coord (longitude)
             --dy 42.33600 \                       # Goal y coord (latitude)
-            --dx -70.88737                        # Goal x coord (longitude)
+            --dx -70.88737 \                      # Goal x coord (longitude)
             --speed 0.5 \                         # Constant target boat speed
             --generations 500 \                   # PSO generations
             --pool_size 100 \                     # PSO pool size
@@ -160,16 +160,16 @@ In this example, using an 8-way neighborhood.
         # Solve
         python3 planners/graphplanner.py \
             --region $INDIR/full.tif \                           # Input occupancy grid raster (GeoTiff) 
-            --graph $OUTDIR/sample_uni_8.pickle                  # Input 8-way neighborhood Uniform Graph
-            --speed 0.5                                          # Constant target boat speed
+            --graph $OUTDIR/sample_uni_8.pickle \                # Input 8-way neighborhood Uniform Graph
+            --speed 0.5 \                                        # Constant target boat speed
             --sy 42.32343 \                                      # Start y coord (latitude)
             --sx -70.99428 \                                     # Start x coord (longitude)
             --dy 42.33600 \                                      # Goal y coord (latitude)
             --dx -70.88737 \                                     # Goal x coord (longitude)
             --solver dijkstra \                                  # Select solver (dijkstra, A*) 
-            --map $OUTDIR/sample_uni_8_path.png                  # Output figure of solution path
-            --trace  $OUTDIR/sample_dijkstra_uni_8_trace.png     # Output figure of visited nodes
-            --path  $OUTDIR/sample_dijkstra_uni_8_path.txt       # Output path waypoints
+            --map $OUTDIR/sample_uni_8_path.png \                # Output figure of solution path
+            --trace  $OUTDIR/sample_dijkstra_uni_8_trace.png \   # Output figure of visited nodes
+            --path  $OUTDIR/sample_dijkstra_uni_8_path.txt \     # Output path waypoints
             > $OUTDIR/sample_dijkstra_uni_8_stats_out.txt        # Output path information 
 
 
