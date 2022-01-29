@@ -111,6 +111,8 @@ The VG is used to quickly generate a set of initial candidate solution paths to 
             --path $OUTDIR/sample_pso_path.txt \     # Output path waypoints
             > $OUTDIR/sample_pso_stats.out           # Output path information 
 
+**To optimize reward**, modify the command above by adding the option `--reward $INDIR/reward.txt`.
+
 
 ### Particle Swarm Optimization
 
@@ -141,6 +143,8 @@ The PSO initial population is randomly generated.
             --path $OUTDIR/sample_pso_path_2.txt \  # Output path waypoints
             > $OUTDIR/sample_pso_stats_2_out.txt        # Output path information 
 
+
+**To optimize reward**, modify the command above by adding the option `--reward $INDIR/reward.txt`.
 
 ### Dijkstra on Uniform Graphs or Visibility Graphs
 
