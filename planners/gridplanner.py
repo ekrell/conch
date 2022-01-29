@@ -200,7 +200,7 @@ def calcWork(v, w, currentsGrid_u, currentsGrid_v, targetSpeed_mps, geotransform
 
         # Work
         work = 0
-        print(v, w)
+        #print(v, w)
         b = list(bresenham.bresenhamline(np.array([v]), np.array([w])))
         hdist_ = hdist / len(b)
 
