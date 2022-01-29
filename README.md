@@ -47,6 +47,10 @@ Tools are classified as either _builders_ or _solvers_, both being part of the p
     sudo apt install python3-gdal
     pip3 install haversine numpy matplotlib dill pyvisgraph pandas pygmo rasterio shapely geopandas pyshp fiona
 
+### Make a place to store results
+
+    mkdir test/outputs
+
 ### Particle Swarm Optimization + Visibility Graphs
 
 PSO is used to generate a solution for a path planning problem.
