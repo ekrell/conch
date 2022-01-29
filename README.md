@@ -47,31 +47,98 @@ Tools are classified as either _builders_ or _solvers_, both being part of the p
     sudo apt install python3-gdal
     pip3 install haversine numpy matplotlib dill pyvisgraph pandas pygmo rasterio shapely geopandas pyshp fiona
 
-### Metaheuristic path planning with `metaplanner.py`
+### Particle Swarm Optimization + Visibility Graphs
 
-Particle swarm optimization will be used to generate a path.
+PSO is used to generate a solution for a path planning problem.
+Given water current forecasts, PSO will optimize the path based on energy efficiency. 
+The VG is used to quickly generate a set of initial candidate solution paths to use as the PSO initial population.
+
+        # Setup variables
+        INDIR=test/inputs/
+        OUTDIR=test/outputs/
+
+        # Generate Visibility Graph (VG)
+        python3 planners/vgplanner_build.py \
+            -r $INDIR/full.tif \                 # Input occupancy grid raster (GeoTiff)
+            -g $OUTDIR/sample_vg.graph \         # Output VG
+            -s $OUTDIR/sample_full.shp \         # Output geospatial shapefile of polygons
+            -m $OUTDIR/sample_poly.png \         # Output figure of polygons
+            -v $OUTDIR/sample_vg.png \           # Output figure of VG
+            -n 4 \                               # Number of CPU workers
+            --build                              # Actually build the graph (otherwise, just print info)
+
+        # Add (start, goal) points to VG & convert to Python dictionary
+        python3 planners/vg2g.py \
+            -r $INDIR/full.tif \                 # Input occupancy grid raster (GeoTiff)
+            -v $OUTDIR/sample_vg.graph \         # Input VG
+            -o $OUTDIR/sample_vg.pickle \        # Output VG as pickled Python dictionary
+            --sy 42.32343 \                      # Start y coord (latitude)
+            --sx -70.99428 \                     # Start x coord (longitude)
+            --dy 42.33600 \                      # Goal y coord (latitude)
+            --dx -70.88737                       # Goal x coord (longitude)
+
+        # Generate initial population using VG
+        python3 planners/getNpaths.py \
+            --region $INDIR/full.tif \           # Input occupancy grid raster (GeoTiff)
+            --n_paths 100 \                      # Number of paths to generate
+            --graph $OUTDIR/sample_vg.pickle \   # Input VG
+            --paths $OUTDIR/sample_initpop.txt \ # Output paths for initial population
+            --sy 42.32343 \                      # Start y coord (latitude)
+            --sx -70.99428 \                     # Start x coord (longitude)
+            --dy 42.33600 \                      # Goal y coord (latitude)
+            --dx -70.88737                       # Goal x coord (longitude) 
+            --map $OUTDIR/sample_initpop.png     # Output figure of initial population
+
+        # Solve 
+        python3 planners/metaplanner.py \
+            -r test/inputs/full.tif \             # Input occupancy grid raster (GeoTiff)
+            --currents_mag $INDIR/20170503_magwater.tiff \  # Water currents magnitudes raster (GeoTiff)
+            --currents_dir $INDIR/20170503_dirwater.tiff \  # Water currents directions raster (GeoTiff)
+            --sy 42.32343 \                       # Start y coord (latitude)
+            --sx -70.99428 \                      # Start x coord (longitude)
+            --dy 42.33600 \                       # Goal y coord (latitude)
+            --dx -70.88737                        # Goal x coord (longitude)
+            --speed 0.5 \                         # Constant target boat speed
+            --generations 500 \                   # PSO generations
+            --pool_size 100 \                     # PSO pool size
+            --num_waypoints 5 \                   # Number of waypoints in PSO solution
+            --init_pop $OUTDIR/sample_initpop.txt # Input initial population paths
+            --map $OUTDIR/sample_pso_path.png \   # Output figure of solution path
+            --path $OUTDIR/sample_pso_path.txt \  # Output path waypoints
+            > $OUTDIR/sample_pso_stats.out        # Output path information 
+
+
+### Particle Swarm Optimization
+
+PSO is used to generate a solution for a path planning problem.
+Given water current forecasts, PSO will optimize the path based on energy efficiency. 
+The PSO initial population is randomly generated. 
+
+**Not expected to perform as well as when using VG (above).**
+
+        # Setup variables
+        INDIR=test/inputs/
+        OUTDIR=test/outputs/
+
+        # Solve 
+        python3 planners/metaplanner.py \
+            -r test/inputs/full.tif \             # Input occupancy grid raster (GeoTiff)
+            --currents_mag $INDIR/20170503_magwater.tiff \  # Water currents magnitudes raster (GeoTiff)
+            --currents_dir $INDIR/20170503_dirwater.tiff \  # Water currents directions raster (GeoTiff)
+            --sy 42.32343 \                       # Start y coord (latitude)
+            --sx -70.99428 \                      # Start x coord (longitude)
+            --dy 42.33600 \                       # Goal y coord (latitude)
+            --dx -70.88737                        # Goal x coord (longitude)
+            --speed 0.5 \                         # Constant target boat speed
+            --generations 500 \                   # PSO generations
+            --pool_size 100 \                     # PSO pool size
+            --num_waypoints 5 \                   # Number of waypoints in PSO solution
+            --map $OUTDIR/sample_pso_path_2.png \   # Output figure of solution path
+            --path $OUTDIR/sample_pso_path_2.txt \  # Output path waypoints
+            > $OUTDIR/sample_pso_stats_2.out        # Output path information 
+
 
 ### Dijkstra or A* on uniform grids or visibility graphs
-
-### Dijkstra or A* on extended visibility graphs
-
-An extended visibility graph (EVG) is a visibility graph with additional nodes added. A visibility graph is guaranteed to include the optimal shortest-distance path, but not necessarily the most energy-efficient. So, additional nodes offer more planning opportunities. 
-
-        # Generate visibility graph
-        python3 planners/vgplanner_build.py -r test/full.tif -g vg.graph -s full.shp -m poly.png -v vg.png -n 4 --build
-
-        # Extend visibility graph
-        python3 planners/vg2evg.py -r test/full.tif -v vg.graph -e evg.graph -m evg.png --xdiff 10 --ydiff 10 --radius 10 --threshold 2
-
-        # Convert to python dictionary
-        python3 planners/vg2g.py -r test/full.tif -v evg.graph -o evg-ex.pickle \
-            --sy 42.32343 --sx -70.99428 --dy 42.33600 --dx -70.88737
-
-        # Solve path
-        python3 planners/gplanner_solve.py -r test/full.tif -g evg-ex.pickle --currents_mag test/waterMag.tif --currents_dir test/waterDir.tif \
-            --sy 42.32343 --sx -70.99428 --dy 42.33600 --dx -70.88737 --speed 0.5 --solver a* \
-            -m evg-exsolve.png -p  evg-exsolve.txt > evg-exsolve.out
-
 
 
 # Repo organization
@@ -79,11 +146,13 @@ An extended visibility graph (EVG) is a visibility graph with additional nodes a
 - planners: main executables (builders and planners)
 - tools: minor utilities for data format conversions, etc
 - test: example input files, scripts with experimental runs, and outputs
+    - inputs: input data (i.e. GeoTiff rasters of the map and water current forecasts)
+    - outputs: anything produced by the tools included in this repo
     - scripts: various scripts for setting up runs
-    - acc2020: scripts and outputs for ACC 2020 publication (DOI: 10.13140/RG.2.2.30318.56640)
-    - gsen6331: scripts and outputs for TAMUCC course GSEN 6331
 
 # Tool documentation
+
+**Detailed documentation on the parameters of each tool coming soon.**
 
 
 
