@@ -7,7 +7,7 @@ from optparse import OptionParser
 import dill as pickle
 from math import acos, cos, sin, ceil, floor, atan2
 from osgeo import gdal
-import bresenham
+import bresenham_ as bresenham
 import osgeo.gdalnumeric as gdn
 import time
 import pygmo as pg
@@ -39,7 +39,7 @@ def haversine_np(lon1, lat1, lon2, lat2):
 class solvePath:
     def __init__(self, start, end, grid, targetSpeed_mps = 1, bounds = None,
                  currentsGrid_u = None, currentsGrid_v = None, currentsTransform = None, regionTransform = None,
-                 rewardGrid = None, waypoints = 5, timeIn = 0, interval = 3600, pixelsize_m = 1, weights = (1, 1, 1)):
+                 rewardGrid = None, waypoints = 5, timeIn = 0, interval = 3600, pixelsize_m = 1, weights = (0, 1, 1)):
         self.start = np.array(start).astype(int)
         self.end = np.array(end).astype(int)
         self.waypoints = waypoints
@@ -72,7 +72,7 @@ class solvePath:
         work, dist, obs, reward = calcWork(path, self.pathlen, self.grid, self.targetSpeed_mps,
                 self.currentsGrid_u, self.currentsGrid_v, self.currentsTransform, self.regionTransform,
                 self.rewardGrid, self.timeIn, self.interval, self.pixelsize_m)
-        return [(work * self.weights[1]) + (-1 * reward * self.weights[2]) + (obs * obs * 100)]
+        return [(dist * self.weights[0]) + (work * self.weights[1]) + (-1 * reward * self.weights[2]) + (obs * obs * 100)]
 
     def get_bounds(self):
         lowerBounds = np.zeros(self.dim)
@@ -267,7 +267,7 @@ if __name__ == "__main__":
                       help = "Number of optimization generations.")
     parser.add_option(      "--pool_size",       type = "int", default = 50,
                       help = "Number of individuals in optimization pool")
-    parser.add_option(      "--distance_weight", type = "float", default = 1.0,
+    parser.add_option(      "--distance_weight", type = "float", default = 0.0,
                       help = "Weight of distance attribute in fitness.")
     parser.add_option(      "--force_weight",    type = "float", default = 1.0,
                       help = "Weight of force attribute in fitness.")

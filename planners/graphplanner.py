@@ -409,7 +409,6 @@ def main():
         prev_point = point
     path_duration = (path_distance * 1000 / targetSpeed_mps) / 60
 
-    print(T / 60)
     print('    Distance: {:.4f} km'.format(path_distance))
     print('    Duration: {:.4f} min'.format(path_duration))
     if usingCurrents:
