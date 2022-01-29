@@ -159,23 +159,60 @@ In this example, using an 8-way neighborhood.
 
         # Solve
         python3 planners/graphplanner.py \
-            --region $INDIR/full.tif \                  # Input occupancy grid raster (GeoTiff) 
-            --graph $OUTDIR/sample_uni_8.pickle         # Input 8-way neighborhood Uniform Graph
-            --speed 0.5                                 # Constant target boat speed
-            --sy 42.32343 \                             # Start y coord (latitude)
-            --sx -70.99428 \                            # Start x coord (longitude)
-            --dy 42.33600 \                             # Goal y coord (latitude)
-            --dx -70.88737 \                            # Goal x coord (longitude)
-            --solver dijkstra \                         # Select solver (dijkstra, A*) 
-            --map $OUTDIR/sample_uni_8_path.png         # Output figure of solution path
-            --trace  $OUTDIR/sample_uni_8_trace.png     # Output figure of visited nodes
-            --path  $OUTDIR/sample_uni_8_path.txt       # Output path waypoints
-            > $OUTDIR/sample_dijkstra_stats_out.txt     # Output path information 
-
+            --region $INDIR/full.tif \                           # Input occupancy grid raster (GeoTiff) 
+            --graph $OUTDIR/sample_uni_8.pickle                  # Input 8-way neighborhood Uniform Graph
+            --speed 0.5                                          # Constant target boat speed
+            --sy 42.32343 \                                      # Start y coord (latitude)
+            --sx -70.99428 \                                     # Start x coord (longitude)
+            --dy 42.33600 \                                      # Goal y coord (latitude)
+            --dx -70.88737 \                                     # Goal x coord (longitude)
+            --solver dijkstra \                                  # Select solver (dijkstra, A*) 
+            --map $OUTDIR/sample_uni_8_path.png                  # Output figure of solution path
+            --trace  $OUTDIR/sample_dijkstra_uni_8_trace.png     # Output figure of visited nodes
+            --path  $OUTDIR/sample_dijkstra_uni_8_path.txt       # Output path waypoints
+            > $OUTDIR/sample_dijkstra_uni_8_stats_out.txt        # Output path information 
 
 
 #### Using a Visibility Graph
 
+        # Setup variables
+        INDIR=test/inputs/
+        OUTDIR=test/outputs/
+
+        # Generate Visibility Graph (VG)
+        python3 planners/vgplanner_build.py \
+            -r $INDIR/full.tif \                 # Input occupancy grid raster (GeoTiff)
+            -g $OUTDIR/sample_vg.graph \         # Output VG
+            -s $OUTDIR/sample_full.shp \         # Output geospatial shapefile of polygons
+            -m $OUTDIR/sample_poly.png \         # Output figure of polygons
+            -v $OUTDIR/sample_vg.png \           # Output figure of VG
+            -n 4 \                               # Number of CPU workers
+            --build                              # Actually build the graph (otherwise, just print info)
+
+        # Add (start, goal) points to VG & convert to Python dictionary
+        python3 planners/vg2g.py \
+            -r $INDIR/full.tif \                 # Input occupancy grid raster (GeoTiff)
+            -v $OUTDIR/sample_vg.graph \         # Input VG
+            -o $OUTDIR/sample_vg.pickle \        # Output VG as pickled Python dictionary
+            --sy 42.32343 \                      # Start y coord (latitude)
+            --sx -70.99428 \                     # Start x coord (longitude)
+            --dy 42.33600 \                      # Goal y coord (latitude)
+            --dx -70.88737                       # Goal x coord (longitude)
+
+        # Solve
+        python3 planners/graphplanner.py \
+            --region $INDIR/full.tif \                      # Input occupancy grid raster (GeoTiff) 
+            --currents_mag $INDIR/20170503_magwater.tiff \  # Water currents magnitudes raster (GeoTiff)
+            --currents_dir $INDIR/20170503_dirwater.tiff \  # Water currents directions raster (GeoTiff)
+            --graph $OUTDIR/sample_vg.pickle \              # Input VG
+            --speed 0.5 \                                   # Constant target boat speed
+            --sy 42.32343 \                                 # Start y coord (latitude)
+            --sx -70.99428 \                                # Start x coord (longitude)
+            --dy 42.33600 \                                 # Goal y coord (latitude)
+            --dx -70.88737 \                                # Goal x coord (longitude)
+            --solver dijkstra \                             # Select solver (dijkstra, A*) 
+            --map $OUTDIR/sample_dijkstra_vg_path.png \     # Output figure of solution path
+            > $OUTDIR/sample_dijkstra_vg_stats_out.txt      # Output path information 
 
 
 # Repo organization
