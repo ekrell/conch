@@ -1,5 +1,9 @@
 #!/usr/bin/python3
 
+# The purpose is to generate figures for paper:
+#   Autonomous Surface Vehicle Energy-Efficient and Reward-Based
+#   Path Plannning using Particle Swarm Optimization and Visibility Graphs
+
 from osgeo import gdal, ogr, osr, gdalconst
 from gdalconst import GA_ReadOnly
 from shapely.geometry import shape
@@ -19,12 +23,122 @@ from matplotlib.patches import PathPatch
 from matplotlib.lines import Line2D
 from itertools import repeat
 import seaborn as sns
-#matplotlib.rcParams['mathtext.fontset'] = 'stix'
-#matplotlib.rcParams['font.family'] = 'STIXGeneral'
 plt.rc('font', family='serif')
-#plt.rc('xtick', labelsize='medium')
-#plt.rc('ytick', labelsize='medium')
 plt.rc('text', usetex=True)
+
+
+from inspect import getmembers, isclass
+def rasterize_and_save(fname, rasterize_list=None, fig=None, dpi=None,
+                       savefig_kw={}):
+    """Save a figure with raster and vector components
+    This function lets you specify which objects to rasterize at the export
+    stage, rather than within each plotting call. Rasterizing certain
+    components of a complex figure can significantly reduce file size.
+    Inputs
+    ------
+    fname : str
+        Output filename with extension
+    rasterize_list : list (or object)
+        List of objects to rasterize (or a single object to rasterize)
+    fig : matplotlib figure object
+        Defaults to current figure
+    dpi : int
+        Resolution (dots per inch) for rasterizing
+    savefig_kw : dict
+        Extra keywords to pass to matplotlib.pyplot.savefig
+    If rasterize_list is not specified, then all contour, pcolor, and
+    collects objects (e.g., ``scatter, fill_between`` etc) will be
+    rasterized
+    Note: does not work correctly with round=True in Basemap
+    Example
+    -------
+    Rasterize the contour, pcolor, and scatter plots, but not the line
+    >>> import matplotlib.pyplot as plt
+    >>> from numpy.random import random
+    >>> X, Y, Z = random((9, 9)), random((9, 9)), random((9, 9))
+    >>> fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(ncols=2, nrows=2)
+    >>> cax1 = ax1.contourf(Z)
+    >>> cax2 = ax2.scatter(X, Y, s=Z)
+    >>> cax3 = ax3.pcolormesh(Z)
+    >>> cax4 = ax4.plot(Z[:, 0])
+    >>> rasterize_list = [cax1, cax2, cax3]
+    >>> rasterize_and_save('out.svg', rasterize_list, fig=fig, dpi=300)
+    """
+
+    # Behave like pyplot and act on current figure if no figure is specified
+    fig = plt.gcf() if fig is None else fig
+
+    # Need to set_rasterization_zorder in order for rasterizing to work
+    zorder = -5  # Somewhat arbitrary, just ensuring less than 0
+
+    if rasterize_list is None:
+        # Have a guess at stuff that should be rasterised
+        types_to_raster = ['QuadMesh',]  # 'Contour', 'collections']
+        rasterize_list = []
+
+        print("""
+        No rasterize_list specified, so the following objects will
+        be rasterized: """)
+        # Get all axes, and then get objects within axes
+        for ax in fig.get_axes():
+            for item in ax.get_children():
+                if any(x in str(item) for x in types_to_raster):
+                    rasterize_list.append(item)
+        print('\n'.join([str(x) for x in rasterize_list]))
+    else:
+        # Allow rasterize_list to be input as an object to rasterize
+        if type(rasterize_list) != list:
+            rasterize_list = [rasterize_list]
+
+    for item in rasterize_list:
+
+        # Whether or not plot is a contour plot is important
+        is_contour = (isinstance(item, matplotlib.contour.QuadContourSet) or
+                      isinstance(item, matplotlib.tri.TriContourSet))
+
+        # Whether or not collection of lines
+        # This is commented as we seldom want to rasterize lines
+        # is_lines = isinstance(item, matplotlib.collections.LineCollection)
+
+        # Whether or not current item is list of patches
+        all_patch_types = tuple(
+            x[1] for x in getmembers(matplotlib.patches, isclass))
+        try:
+            is_patch_list = isinstance(item[0], all_patch_types)
+        except TypeError:
+            is_patch_list = False
+
+        # Convert to rasterized mode and then change zorder properties
+        if is_contour:
+            curr_ax = item.ax.axes
+            curr_ax.set_rasterization_zorder(zorder)
+            # For contour plots, need to set each part of the contour
+            # collection individually
+            for contour_level in item.collections:
+                contour_level.set_zorder(zorder - 1)
+                contour_level.set_rasterized(True)
+        elif is_patch_list:
+            # For list of patches, need to set zorder for each patch
+            for patch in item:
+                curr_ax = patch.axes
+                curr_ax.set_rasterization_zorder(zorder)
+                patch.set_zorder(zorder - 1)
+                patch.set_rasterized(True)
+        else:
+            # For all other objects, we can just do it all at once
+            #curr_ax = item.axes
+            #curr_ax.set_rasterization_zorder(zorder)
+            item.set_rasterized(True)
+            #item.set_zorder(zorder - 1)
+
+    # dpi is a savefig keyword argument, but treat it as special since it is
+    # important to this function
+    if dpi is not None:
+        savefig_kw['dpi'] = dpi
+
+    # Save resulting figure
+    fig.savefig(fname, **savefig_kw)
+
 
 
 def grid2world(row, col, transform, nrow):
@@ -36,7 +150,41 @@ def grid2world(row, col, transform, nrow):
 # Constants #
 #############
 
-plt.rcParams.update({'font.size': 9})
+bestPSO = [
+    [4, 3, 1, 7, 9,],
+    [3, 2, 6, 1, 5,],
+    [1, 10, 7, 5, 5,],
+]
+
+bestPSO_VG = [
+    [3, 8, 9, 2, 2,],
+    [8, 4, 3, 5, 5,],
+    [9, 4, 7, 10, 1,],
+]
+
+bestPSO_r500 = [
+    [2, 5, 2, 9, 2,],
+    [3, 3, 3, 7, 8,],
+    [4, 10, 7, 10, 2,],
+]
+
+bestPSO_r1000 = [
+    [10, 2, 9, 2, 3,],
+    [7, 8, 1, 10, 2,],
+    [3, 2, 9, 3, 6,],
+]
+
+bestPSO_VG_r500 = [
+    [4, 6, 8, 3, 7,],
+    [3, 3, 6, 7, 1,],
+    [10, 5, 10, 10, 1,],
+]
+
+bestPSO_VG_r1000 = [
+    [5, 6, 8, 3, 7,],
+    [3, 3, 10, 10, 4,],
+    [6, 4, 4, 7, 10,],
+]
 
 # Color maps
 sea = (153.0/255.0, 188.0/255.0, 182.0/255.0)
@@ -49,12 +197,15 @@ cm_landonly = LinearSegmentedColormap.from_list(
     "landsea", [(0, 0, 0, 0), land], N = 2
 )
 
+
+# Global font size
+plt.rcParams.update({'font.size': 7})
+
 ###########
 # Options #
 ###########
 
 TRIALS = 10
-
 
 # Path tasks
 P1 = [-70.99428, 42.32343, -70.88737, 42.33600]
@@ -75,18 +226,21 @@ currentsRasterFile_dir_W3 = "test/inputs/20191001_dirwater.tiff"
 currentsRasterFile_mag_W4 = "test/inputs/20200831_magwater.tiff"
 currentsRasterFile_dir_W4 = "test/inputs/20200831_dirwater.tiff"
 # Output files
-currentsRasterOut_W1_0 = "test/visuals/20170503_currents_0.png"
-currentsRasterOut_W1_1 = "test/visuals/20170503_currents_1.png"
-currentsRasterOut_W1_2 = "test/visuals/20170503_currents_2.png"
-currentsRasterOut_W2_0 = "test/visuals/20170801_currents_0.png"
-currentsRasterOut_W2_1 = "test/visuals/20170801_currents_1.png"
-currentsRasterOut_W2_2 = "test/visuals/20170801_currents_2.png"
-currentsRasterOut_W3_0 = "test/visuals/20191001_currents_0.png"
-currentsRasterOut_W3_1 = "test/visuals/20191001_currents_1.png"
-currentsRasterOut_W3_2 = "test/visuals/20191001_currents_2.png"
-currentsRasterOut_W4_0 = "test/visuals/20200831_currents_0.png"
-currentsRasterOut_W4_1 = "test/visuals/20200831_currents_1.png"
-currentsRasterOut_W4_2 = "test/visuals/20200831_currents_2.png"
+currentsRasterOut_W1_0 = "test/visuals/20170503_currents_0.pdf"
+currentsRasterOut_W1_1 = "test/visuals/20170503_currents_1.pdf"
+currentsRasterOut_W1_2 = "test/visuals/20170503_currents_2.pdf"
+currentsRasterOut_W2_0 = "test/visuals/20170801_currents_0.pdf"
+currentsRasterOut_W2_1 = "test/visuals/20170801_currents_1.pdf"
+currentsRasterOut_W2_2 = "test/visuals/20170801_currents_2.pdf"
+currentsRasterOut_W3_0 = "test/visuals/20191001_currents_0.pdf"
+currentsRasterOut_W3_1 = "test/visuals/20191001_currents_1.pdf"
+currentsRasterOut_W3_2 = "test/visuals/20191001_currents_2.pdf"
+currentsRasterOut_W4_0 = "test/visuals/20200831_currents_0.pdf"
+currentsRasterOut_W4_1 = "test/visuals/20200831_currents_1.pdf"
+currentsRasterOut_W4_2 = "test/visuals/20200831_currents_2.pdf"
+
+# Reward raster
+rewardFile = "test/inputs/reward.txt"
 
 # Full region
 lower_left = {"lat" : 42.2647, "lon" : -70.9996}
@@ -94,8 +248,8 @@ upper_right = {"lat" : 42.3789, "lon" : -70.87151}
 regionRasterFile = "test/inputs/full.tif"
 regionShapeFile = "test/outputs/visgraph_build/visgraph.shp"
 # Output files
-regionOut = "test/visuals/region.png"
-polyOut = "test/visuals/poly.png"
+regionOut = "test/visuals/region.pdf"
+polyOut = "test/visuals/poly.pdf"
 
 # Graphs
 visgraphFile_P1 = "test/outputs/graphplanner_visgraph/visgraph_P1.pickle"
@@ -139,10 +293,9 @@ vg_r500_PSOstatResStr = "PSO_P{}_W{}_S0.5_G500_I100_N5_R1500__T{}.out"
 vg_r1000_PSOpathResStr = "PSO_P{}_W{}_S0.5_G500_I100_N5_R2000__T{}.txt"
 vg_r1000_PSOstatResStr = "PSO_P{}_W{}_S0.5_G500_I100_N5_R2000__T{}.out"
 
-
-def init():
+def init(width=1.9, height=1.9):
     # Init basemap
-    plt.figure(figsize=(4, 4))
+    fig = plt.figure(figsize=(width, height))
     m = Basemap( \
                 llcrnrlon = lower_left["lon"],
                 llcrnrlat = lower_left["lat"],
@@ -151,6 +304,24 @@ def init():
                 resolution = "i",
                 epsg = "4269")
     m.drawmapboundary(fill_color = sea)
+
+    #zorder = -5
+    #types_to_raster = ['Spine']
+    #rasterize_list = []
+    #for ax in fig.get_axes():
+    #    for item in ax.get_children():
+    #        print(str(item))
+    #        #if any(x in str(item) for x in types_to_raster):
+    #        rasterize_list.append(item)
+    #print(rasterize_list)
+
+    #for item in rasterize_list:
+    #    curr_ax = item.axes
+    #    if curr_ax is not None:
+    #        curr_ax.set_rasterization_zorder(zorder)
+    #        item.set_rasterized(True)
+    #        item.set_zorder(zorder - 1)
+
     parallels = m.drawparallels(np.arange(-90.,120.,.05), labels = [1, 0, 0, 0], color = "gray")
     m.drawmeridians(np.arange(-180.,180.,.05), labels = [0, 0, 0, 1], color = "gray")
     for p in parallels:
@@ -353,33 +524,54 @@ def pathplt(pathfile, transform, nrows, color = "white", linestyle = "solid", li
     else:
         m.plot(list(zip(*path))[1], list(zip(*path))[0], color = color, linestyle = linestyle, linewidth = linewidth, alpha = alpha, zorder = z)
 
-def pltPSO(work, pathResDir, pathResStr, trials = 1, z = None):
+def pltPSO(work, pathResDir, pathResStr, trials = 1, z = None, best = None):
     ds = gdal.Open(regionRasterFile, GA_ReadOnly)
     transform = ds.GetGeoTransform()
     nrows = ds.GetRasterBand(1).ReadAsArray().shape[0]
+    bigLinewidth = 3
+    bigAlpha = 1
+
     # Path 1
     for trial in np.array(range(trials)) + 1:
         pathFile = pathResDir + "/" + pathResStr.format(0, work, trial)
+        linewidth = 1
+        alpha = 0.6
+        if best is not None:
+            if trial == best[0][work]:
+                linewidth = bigLinewidth
+                alpha = bigAlpha
         if z is None:
-            pathplt(pathFile, transform, nrows, color = C1, linestyle = "solid", alpha = 0.75)
+            pathplt(pathFile, transform, nrows, color = C1, linestyle = "solid", alpha = alpha, linewidth = linewidth)
         else:
-            pathplt(pathFile, transform, nrows, color = C1, linestyle = "solid", alpha = 0.75, z = z)
+            pathplt(pathFile, transform, nrows, color = C1, linestyle = "solid", alpha = alpha, linewidth = linewidth, z = z)
     graphtask(P1, C1)
     # Path 2
     for trial in np.array(range(trials)) + 1:
         pathFile = pathResDir + "/" + pathResStr.format(1, work, trial)
+        linewidth = 1
+        alpha = 0.6
+        if best is not None:
+            if trial == best[0][work]:
+                linewidth = bigLinewidth
+                alpha = bigAlpha
         if z is None:
-            pathplt(pathFile, transform, nrows, color = C2, linestyle = "solid", alpha = 0.75)
+            pathplt(pathFile, transform, nrows, color = C2, linestyle = "solid", alpha = alpha, linewidth = linewidth)
         else:
-            pathplt(pathFile, transform, nrows, color = C2, linestyle = "solid", alpha = 0.75, z = z)
+            pathplt(pathFile, transform, nrows, color = C2, linestyle = "solid", alpha = alpha, linewidth = linewidth, z = z)
     graphtask(P2, C2)
     # Path 3
     for trial in np.array(range(trials)) + 1:
         pathFile = pathResDir + "/" + pathResStr.format(2, work, trial)
+        linewidth = 1
+        alpha = 0.6
+        if best is not None:
+            if trial == best[0][work]:
+                linewidth = bigLinewidth
+                alpha = bigAlpha
         if z is None:
-            pathplt(pathFile, transform, nrows, color = C3, linestyle = "solid", alpha = 0.75)
+            pathplt(pathFile, transform, nrows, color = C3, linestyle = "solid", alpha = alpha, linewidth = linewidth)
         else:
-            pathplt(pathFile, transform, nrows, color = C3, linestyle = "solid", alpha = 0.75, z = z)
+            pathplt(pathFile, transform, nrows, color = C3, linestyle = "solid", alpha = alpha, linewidth = linewidth, z = z)
     graphtask(P3, C3)
     # Legend
     #ax = plt.gca()
@@ -394,7 +586,6 @@ def pltPSO(work, pathResDir, pathResStr, trials = 1, z = None):
     #legend.get_frame().set_facecolor("aliceblue")
     #legend.get_frame().set_linewidth(0.0)
 
-plt.rcParams.update({'font.size': 18})
 # Plot Dijkstra results (cost, times)
 resDijkstraFile = "test/results_dijkstra.csv"
 dfDijk = pd.read_csv(resDijkstraFile)
@@ -418,7 +609,7 @@ plt.register_cmap(cmap=map_object)
 
 
 def pltDijkCost(df):
-    fig, ax1 = plt.subplots(figsize=(5.5, 6))
+    fig, ax1 = plt.subplots(figsize=(2.8, 3))
     ax2=ax1.twinx()
     sns.barplot(
         ax = ax1,
@@ -432,7 +623,7 @@ def pltDijkCost(df):
             current_width = patch.get_width()
             diff = current_width - new_value
             # we change the bar width
-            patch.set_width(new_value * 3.6)
+            patch.set_width(new_value * 4)
             # we recenter the bar
             patch.set_x(patch.get_x() + diff * .5)
     change_width(ax1, .05)
@@ -441,7 +632,7 @@ def pltDijkCost(df):
         ax = ax2,
         data=dfDijk_P1,
         x="Work", y="Time_Graph", hue="Connection",
-        alpha = 0.8, marker="*", s = 600,edgecolor="black", linewidth=1,
+        alpha = 0.8, marker="*", s = 200, edgecolor="black", linewidth=1,
     )
     ax1.set_ylim(0, 5500)
     ax1.set_ylabel("Path cost")
@@ -450,33 +641,78 @@ def pltDijkCost(df):
         ax = ax2,
         data=dfDijk_P1,
         x="Work", y="Time_Grid", hue="Connection",
-        alpha = 0.5, marker="D", s = 600,  edgecolor="black", linewidth=1,
+        alpha = 0.5, marker="D", s = 200,  edgecolor="black", linewidth=1,
     )
     ax2.set_ylim(0, 25)
     ax2.set_ylabel("Solution time (minutes)")
-    ax1.legend(loc='upper center', bbox_to_anchor=(0.475, 1.15),
-                     ncol=4, fancybox=False, shadow=False, handletextpad=0.1, frameon=False, handlelength=1)
-    ax2.legend().set_visible(False)
+    ax1.legend().remove()
+    ax2.legend().remove()
+    #ax1.legend(loc='upper center', bbox_to_anchor=(0.475, 1.15),
+    #                 ncol=4, fancybox=False, shadow=False, handletextpad=0.1, frameon=False, handlelength=1)
+    #ax2.legend().set_visible(False)
     plt.tight_layout()
 
+
+
+
+def pltReward(rFile):
+    rewardGrid = np.flipud(np.loadtxt(rFile))
+    region(m)
+    img = m.imshow(rewardGrid * rewardGrid, interpolation='nearest', zorder = 100, alpha = 1, cmap = "reward")
+    region(m, colors = cm_landonly, z = 1000)
+
+# Plot reward
+m = init()
+pltReward(rewardFile)
+plt.tight_layout()
+rasterize_and_save("test/visuals/reward.pdf", dpi=300)
+plt.clf()
 
 #P1
 pltDijkCost(dfDijk_P1)
 plt.tight_layout()
-plt.savefig('test/visuals/dijkstra_res_P1.pdf', dpi = 300)
+plt.savefig('test/visuals/dijkstra_res_P1.pdf', dpi=300)
 plt.clf()
 # P2
 pltDijkCost(dfDijk_P2)
 plt.tight_layout()
-plt.savefig('test/visuals/dijkstra_res_P2.pdf', dpi = 300)
+plt.savefig('test/visuals/dijkstra_res_P2.pdf', dpi=300)
 plt.clf()
 # P3
 pltDijkCost(dfDijk_P3)
 plt.tight_layout()
-plt.savefig('test/visuals/dijkstra_res_P3.pdf', dpi = 300)
+plt.savefig('test/visuals/dijkstra_res_P3.pdf', dpi=300)
+plt.clf()
+# Legend
+fig, ax = plt.subplots(figsize=(4.5, 1))
+snsColors = sns.color_palette()
+custom_lines = [Line2D([0], [0], linestyle = "solid", color = snsColors[0], alpha = 1.0, lw = 4),
+                    Line2D([0], [0], linestyle = "solid",  color = snsColors[1],  alpha = 1.0,  lw = 4),
+                    Line2D([0], [0], linestyle = "solid",  color = snsColors[2],  alpha = 1.0,  lw = 4),
+                    Line2D([0], [0], linestyle = "solid",  color = snsColors[3],  alpha = 1.0,  lw = 4),
+                    Line2D([], [], color= snsColors[0], marker='*', linestyle='None', markersize=8, label='Purple triangles'),
+                    Line2D([], [], color= snsColors[1], marker='*', linestyle='None', markersize=8, label='Purple triangles'),
+                    Line2D([], [], color= snsColors[2], marker='*', linestyle='None', markersize=8, label='Purple triangles'),
+                    Line2D([], [], color= snsColors[3], marker='*', linestyle='None', markersize=8, label='Purple triangles'),
+                    Line2D([], [], color= snsColors[0], marker='D', linestyle='None', markersize=4, label='Purple triangles'),
+                    Line2D([], [], color= snsColors[1], marker='D', linestyle='None', markersize=4, label='Purple triangles'),
+                    Line2D([], [], color= snsColors[2], marker='D', linestyle='None', markersize=4, label='Purple triangles'),
+                    #Line2D([], [], color= snsColors[3], marker='D', linestyle='None', markersize=11, label='Purple triangles'),
+                    ]
+custom_labels = [
+        "Cost, 4-way", "Cost, 8-way", "Cost, 16-way", "Cost, VG",
+        "Graph speed, 4-way", "Graph speed, 8-way", "Graph speed, 16-way", "Graph speed, VG",
+        "Grid speed, 4-way", "Grid speed, 8-way", "Grid speed, 16-way",
+    ]
+legend = ax.legend(custom_lines, custom_labels, loc = "upper center", ncol = 3, handlelength = 3)
+legend.get_frame().set_alpha(6.0)
+legend.get_frame().set_facecolor("white")
+legend.get_frame().set_linewidth(0.0)
+ax.axis('off')
+plt.tight_layout()
+plt.savefig("test/visuals/dijkstra_cost_legend.pdf", dpi=300)
 plt.clf()
 
-plt.rcParams.update({'font.size': 18})
 
 # Plot Dijkstra results (Astar results are the same)
 def pathplt2(pathfile, transform, nrows, color = "white", linestyle = "solid", linewidth = 1, alpha = 1.0):
@@ -522,85 +758,84 @@ def pltdijkstra(work, pltlegend = False):
 # PSO, random, W0
 m = init()
 region(m)
-pltPSO(0, rPSOpathResDir, rPSOpathResStr, trials = TRIALS)
+pltPSO(0, rPSOpathResDir, rPSOpathResStr, trials = TRIALS, best = bestPSO)
 plt.title(r'PSO results ($\mathcal{W}_0)$')
 plt.tight_layout()
-plt.savefig("test/visuals/pso_rand_W0.png")
+rasterize_and_save("test/visuals/pso_rand_W0.pdf", dpi=300)
 plt.clf()
 # PSO, random, W1
 m = init()
 region(m)
-pltPSO(1, rPSOpathResDir, rPSOpathResStr, trials = TRIALS)
+pltPSO(1, rPSOpathResDir, rPSOpathResStr, trials = TRIALS, best = bestPSO)
 plt.title(r'PSO results ($\mathcal{W}_1)$')
 plt.tight_layout()
-plt.savefig("test/visuals/pso_rand_W1.png")
+rasterize_and_save("test/visuals/pso_rand_W1.pdf", dpi=300)
 plt.clf()
 # PSO, random, W2
 m = init()
 region(m)
-pltPSO(2, rPSOpathResDir, rPSOpathResStr, trials = TRIALS)
+pltPSO(2, rPSOpathResDir, rPSOpathResStr, trials = TRIALS, best = bestPSO)
 plt.title(r'PSO results ($\mathcal{W}_2)$')
 plt.tight_layout()
-plt.savefig("test/visuals/pso_rand_W2.png")
+rasterize_and_save("test/visuals/pso_rand_W2.pdf", dpi=300)
 plt.clf()
 # PSO, random, W3
 m = init()
 region(m)
-pltPSO(3, rPSOpathResDir, rPSOpathResStr, trials = TRIALS)
+pltPSO(3, rPSOpathResDir, rPSOpathResStr, trials = TRIALS, best = bestPSO)
 plt.title(r'PSO results ($\mathcal{W}_3)$')
 plt.tight_layout()
-plt.savefig("test/visuals/pso_rand_W3.png")
+rasterize_and_save("test/visuals/pso_rand_W3.pdf", dpi=300)
 plt.clf()
 # PSO, random, W4
 m = init()
 region(m)
-pltPSO(4, rPSOpathResDir, rPSOpathResStr, trials = TRIALS)
+pltPSO(4, rPSOpathResDir, rPSOpathResStr, trials = TRIALS, best = bestPSO)
 plt.title(r'PSO results ($\mathcal{W}_4)$')
 plt.tight_layout()
-plt.savefig("test/visuals/pso_rand_W4.png")
+rasterize_and_save("test/visuals/pso_rand_W4.pdf", dpi=300)
 plt.clf()
 
 # PSO, VG init, W0
 m = init()
 region(m)
-pltPSO(0, vgPSOpathResDir, vgPSOpathResStr, trials = TRIALS)
+pltPSO(0, vgPSOpathResDir, vgPSOpathResStr, trials = TRIALS, best = bestPSO_VG)
 plt.title(r'PSO results, VG-init ($\mathcal{W}_0$)')
 plt.tight_layout()
-plt.savefig("test/visuals/pso_vg_W0.png")
+rasterize_and_save("test/visuals/pso_vg_W0.pdf", dpi=300)
 plt.clf()
 # PSO, VG init, W1
 m = init()
 region(m)
-pltPSO(1, vgPSOpathResDir, vgPSOpathResStr, trials = TRIALS)
+pltPSO(1, vgPSOpathResDir, vgPSOpathResStr, trials = TRIALS, best = bestPSO_VG)
 plt.title(r'PSO results, VG-init ($\mathcal{W}_1$)')
 plt.tight_layout()
-plt.savefig("test/visuals/pso_vg_W1.png")
+rasterize_and_save("test/visuals/pso_vg_W1.pdf", dpi=300)
 plt.clf()
 # PSO, VG init, W2
 m = init()
 region(m)
-pltPSO(2, vgPSOpathResDir, vgPSOpathResStr, trials = TRIALS)
+pltPSO(2, vgPSOpathResDir, vgPSOpathResStr, trials = TRIALS, best = bestPSO_VG)
 plt.title(r'PSO results, VG-init ($\mathcal{W}_2$)')
 plt.tight_layout()
-plt.savefig("test/visuals/pso_vg_W2.png")
+rasterize_and_save("test/visuals/pso_vg_W2.pdf", dpi=300)
 plt.clf()
 # PSO, VG init, W3
 m = init()
 region(m)
-pltPSO(3, vgPSOpathResDir, vgPSOpathResStr, trials = TRIALS)
+pltPSO(3, vgPSOpathResDir, vgPSOpathResStr, trials = TRIALS, best = bestPSO_VG)
 plt.title(r'PSO results, VG-init ($\mathcal{W}_3$)')
 plt.tight_layout()
-plt.savefig("test/visuals/pso_vg_W3.png")
+rasterize_and_save("test/visuals/pso_vg_W3.pdf", dpi=300)
 plt.clf()
 # PSO, VG init, W4
 m = init()
 region(m)
-pltPSO(4, vgPSOpathResDir, vgPSOpathResStr, trials = TRIALS)
+pltPSO(4, vgPSOpathResDir, vgPSOpathResStr, trials = TRIALS, best = bestPSO_VG)
 plt.title(r'PSO results, VG-init ($\mathcal{W}_4$)')
 plt.tight_layout()
-plt.savefig("test/visuals/pso_vg_W4.png")
+rasterize_and_save("test/visuals/pso_vg_W4.pdf", dpi=300)
 plt.clf()
-
 
 # Dijksta, graph, W0
 m = init()
@@ -608,7 +843,7 @@ region(m)
 pltdijkstra(0)
 plt.title(r'Dijkstra results ($\mathcal{W}_0$)')
 plt.tight_layout()
-plt.savefig("test/visuals/dijkstra_graph_W0.png")
+rasterize_and_save("test/visuals/dijkstra_graph_W0.pdf", dpi=300)
 plt.clf()
 # Dijksta, graph,p W1
 m = init()
@@ -616,7 +851,7 @@ region(m)
 pltdijkstra(1)
 plt.title(r'Dijkstra results ($\mathcal{W}_1$)')
 plt.tight_layout()
-plt.savefig("test/visuals/dijkstra_graph_W1.png")
+rasterize_and_save("test/visuals/dijkstra_graph_W1.pdf", dpi=300)
 plt.clf()
 # Dijksta, graph, W2
 m = init()
@@ -624,7 +859,7 @@ region(m)
 pltdijkstra(2)
 plt.title(r'Dijkstra results ($\mathcal{W}_2$)')
 plt.tight_layout()
-plt.savefig("test/visuals/dijkstra_graph_W2.png")
+rasterize_and_save("test/visuals/dijkstra_graph_W2.pdf", dpi=300)
 plt.clf()
 # Dijksta, graph, W3
 m = init()
@@ -632,7 +867,7 @@ region(m)
 pltdijkstra(3)
 plt.title(r'Dijkstra results ($\mathcal{W}_3$)')
 plt.tight_layout()
-plt.savefig("test/visuals/dijkstra_graph_W3.png")
+rasterize_and_save("test/visuals/dijkstra_graph_W3.pdf", dpi=300)
 plt.clf()
 # Dijksta, graph, W4
 m = init()
@@ -640,94 +875,55 @@ region(m)
 pltdijkstra(4)
 plt.title(r'Dijkstra results ($\mathcal{W}_4$)')
 plt.tight_layout()
-plt.savefig("test/visuals/dijkstra_graph_W4.png")
+rasterize_and_save("test/visuals/dijkstra_graph_W4.pdf", dpi=300)
 plt.clf()
 
+
 # Legends
-fig, ax = plt.subplots(figsize=(9, 3))
+fig, ax = plt.subplots(figsize=(3.5, 0.75))
 custom_lines = [
-    Line2D([0], [0], linestyle = "solid", color =  (100.0/255.0, 40.0/255.0, 100.0/255.0), alpha = 1.0, lw = 3.5),
-    Line2D([0], [0], linestyle = "solid",  color = (200.0/255.0, 60.0/255.0, 35.0/255.0),  alpha = 1.0,  lw =3.5),
-    Line2D([0], [0], linestyle = "solid",  color = (100.0/255.0, 100.0/255.0, 30.0/255.0),  alpha = 1.0,  lw = 3.5),
-    Line2D([0], [0], linestyle = "solid", color =  (10.0/255.0, 10.0/255.0, 10.0/255.0), alpha = 1.0, lw = 3.5),
-    Line2D([0], [0], linestyle = "dashed", color =  (100.0/255.0, 40.0/255.0, 100.0/255.0), alpha = 1.0, lw = 3.5),
-    Line2D([0], [0], linestyle = "dashed",  color = (200.0/255.0, 60.0/255.0, 35.0/255.0),  alpha = 1.0,  lw = 3.5),
-    Line2D([0], [0], linestyle = "dashed",  color = (100.0/255.0, 100.0/255.0, 30.0/255.0),  alpha = 1.0,  lw = 3.5),
-    Line2D([0], [0], linestyle = "dashed", color =  (10.0/255.0, 10.0/255.0, 10.0/255.0), alpha = 1.0, lw = 3.5),
-    Line2D([0], [0], linestyle = "dotted", color =   (100.0/255.0, 40.0/255.0, 100.0/255.0), alpha = 1.0, lw = 3.5),
-    Line2D([0], [0], linestyle = "dotted",  color =  (200.0/255.0, 60.0/255.0, 35.0/255.0),  alpha = 1.0,  lw = 3.5),
-    Line2D([0], [0], linestyle = "dotted",  color =  (100.0/255.0, 100.0/255.0, 30.0/255.0),  alpha = 1.0,  lw = 3.5),
-    Line2D([0], [0], linestyle = "dotted", color =   (10.0/255.0, 10.0/255.0, 10.0/255.0), alpha = 1.0, lw = 3.5),
+    Line2D([0], [0], linestyle = "solid", color =  (100.0/255.0, 40.0/255.0, 100.0/255.0), alpha = 1.0, lw = 3),
+    Line2D([0], [0], linestyle = "solid",  color = (200.0/255.0, 60.0/255.0, 35.0/255.0),  alpha = 1.0,  lw =3),
+    Line2D([0], [0], linestyle = "solid",  color = (100.0/255.0, 100.0/255.0, 30.0/255.0),  alpha = 1.0,  lw = 3),
+    Line2D([0], [0], linestyle = "solid", color =  (10.0/255.0, 10.0/255.0, 10.0/255.0), alpha = 1.0, lw = 3),
+    Line2D([0], [0], linestyle = "dashed", color =  (100.0/255.0, 40.0/255.0, 100.0/255.0), alpha = 1.0, lw = 3),
+    Line2D([0], [0], linestyle = "dashed",  color = (200.0/255.0, 60.0/255.0, 35.0/255.0),  alpha = 1.0,  lw = 3),
+    Line2D([0], [0], linestyle = "dashed",  color = (100.0/255.0, 100.0/255.0, 30.0/255.0),  alpha = 1.0,  lw = 3),
+    Line2D([0], [0], linestyle = "dashed", color =  (10.0/255.0, 10.0/255.0, 10.0/255.0), alpha = 1.0, lw = 3),
+    Line2D([0], [0], linestyle = "dotted", color =   (100.0/255.0, 40.0/255.0, 100.0/255.0), alpha = 1.0, lw = 3),
+    Line2D([0], [0], linestyle = "dotted",  color =  (200.0/255.0, 60.0/255.0, 35.0/255.0),  alpha = 1.0,  lw = 3),
+    Line2D([0], [0], linestyle = "dotted",  color =  (100.0/255.0, 100.0/255.0, 30.0/255.0),  alpha = 1.0,  lw = 3),
+    Line2D([0], [0], linestyle = "dotted", color =   (10.0/255.0, 10.0/255.0, 10.0/255.0), alpha = 1.0, lw = 3),
                         ]
 custom_labels = ["$\mathcal{T}_1$, 4-way", "$\mathcal{T}_1$, 8-way", "$\mathcal{T}_1$, 16-way", "$\mathcal{T}_1$, VG",
                          "$\mathcal{T}_2$, 4-way", "$\mathcal{T}_2$, 8-way", "$\mathcal{T}_2$, 16-way", "$\mathcal{T}_2$, VG",
                          "$\mathcal{T}_3$, 4-way", "$\mathcal{T}_3$, 8-way", "$\mathcal{T}_3$, 16-way", "$\mathcal{T}_3$, VG",
         ]
-legend = ax.legend(custom_lines, custom_labels, loc = "upper center", ncol = 3,  handlelength = 4)
+legend = ax.legend(custom_lines, custom_labels, loc = "upper center", ncol = 3,  handlelength = 3)
 legend.get_frame().set_alpha(6.0)
 legend.get_frame().set_facecolor("white")
 legend.get_frame().set_linewidth(0.0)
+ax.axis('off')
 plt.tight_layout()
-plt.savefig("test/visuals/dijkstra_legend.pdf")
+plt.savefig("test/visuals/dijkstra_legend.pdf", dpi=300)
 plt.clf()
 
-fig, ax = plt.subplots(figsize=(9, 3))
+fig, ax = plt.subplots(figsize=(1.2, 0.75))
 custom_lines = [Line2D([0], [0], linestyle = "solid", color = C1, alpha = 1.0, lw = 5),
-                    Line2D([0], [0], linestyle = "solid",  color = C2,  alpha = 1.0,  lw = 5),
-                    Line2D([0], [0], linestyle = "solid",  color = C3,  alpha = 1.0,  lw = 5),
+                    Line2D([0], [0], linestyle = "solid",  color = C2,  alpha = 1.0,  lw = 3),
+                    Line2D([0], [0], linestyle = "solid",  color = C3,  alpha = 1.0,  lw = 3),
                     ]
 custom_labels = ["$\mathcal{T}_1$ trials", "$\mathcal{T}_2$ trials", "$\mathcal{T}_3$ trials",
     ]
-legend = ax.legend(custom_lines, custom_labels, loc = "upper center", ncol = 1, handlelength = 4)
+legend = ax.legend(custom_lines, custom_labels, loc = "upper center", ncol = 1, handlelength = 5)
 legend.get_frame().set_alpha(6.0)
 legend.get_frame().set_facecolor("white")
 legend.get_frame().set_linewidth(0.0)
+ax.axis('off')
 plt.tight_layout()
-plt.savefig("test/visuals/pso_legend.pdf")
+plt.savefig("test/visuals/pso_legend.pdf", dpi=300)
 plt.clf()
 
-fig, ax = plt.subplots(figsize=(9, 3))
-custom_lines = [Line2D([0], [0], linestyle = "solid", color = C1, alpha = 1.0, lw = 5),
-                    Line2D([0], [0], linestyle = "solid",  color = C2,  alpha = 1.0,  lw = 5),
-                    Line2D([0], [0], linestyle = "solid",  color = C3,  alpha = 1.0,  lw = 5),
-                    ]
-custom_labels = ["$\mathcal{T}_1$ trials", "$\mathcal{T}_2$ trials", "$\mathcal{T}_3$ trials",
-    ]
-legend = ax.legend(custom_lines, custom_labels, loc = "upper center", ncol = 3, handlelength = 4)
-legend.get_frame().set_alpha(6.0)
-legend.get_frame().set_facecolor("white")
-legend.get_frame().set_linewidth(0.0)
-plt.tight_layout()
-plt.savefig("test/visuals/pso_legend_2.pdf")
-plt.clf()
-
-fig, ax = plt.subplots(figsize=(11, 3))
-snsColors = sns.color_palette()
-custom_lines = [Line2D([0], [0], linestyle = "solid", color = snsColors[0], alpha = 1.0, lw = 5),
-                    Line2D([0], [0], linestyle = "solid",  color = snsColors[1],  alpha = 1.0,  lw = 5),
-                    Line2D([0], [0], linestyle = "solid",  color = snsColors[2],  alpha = 1.0,  lw = 5),
-                    Line2D([0], [0], linestyle = "solid",  color = snsColors[3],  alpha = 1.0,  lw = 5),
-                    Line2D([], [], color= snsColors[0], marker='*', linestyle='None', markersize=15, label='Purple triangles'),
-                    Line2D([], [], color= snsColors[1], marker='*', linestyle='None', markersize=15, label='Purple triangles'),
-                    Line2D([], [], color= snsColors[2], marker='*', linestyle='None', markersize=15, label='Purple triangles'),
-                    Line2D([], [], color= snsColors[3], marker='*', linestyle='None', markersize=15, label='Purple triangles'),
-                    Line2D([], [], color= snsColors[0], marker='D', linestyle='None', markersize=11, label='Purple triangles'),
-                    Line2D([], [], color= snsColors[1], marker='D', linestyle='None', markersize=11, label='Purple triangles'),
-                    Line2D([], [], color= snsColors[2], marker='D', linestyle='None', markersize=11, label='Purple triangles'),
-                    #Line2D([], [], color= snsColors[3], marker='D', linestyle='None', markersize=11, label='Purple triangles'),
-                    ]
-custom_labels = [
-        "Cost, 4-way", "Cost, 8-way", "Cost, 16-way", "Cost, VG",
-        "Graph speed, 4-way", "Graph speed, 8-way", "Graph speed, 16-way", "Graph speed, VG",
-        "Grid speed, 4-way", "Grid speed, 8-way", "Grid speed, 16-way",
-    ]
-legend = ax.legend(custom_lines, custom_labels, loc = "upper center", ncol = 3, handlelength = 3)
-legend.get_frame().set_alpha(6.0)
-legend.get_frame().set_facecolor("white")
-legend.get_frame().set_linewidth(0.0)
-plt.tight_layout()
-plt.savefig("test/visuals/dijkstra_cost_legend.pdf")
-plt.clf()
 
 fig, ax = plt.subplots(figsize=(12, 3))
 custom_lines = [Line2D([0], [0], linestyle = "dashed", color = C1, alpha = 1.0, lw = 5),
@@ -771,7 +967,7 @@ for ip in initPaths:
     ly = lp[::2]
     plt.plot(lx, ly)
 plt.tight_layout()
-plt.savefig("test/visuals/getNpaths_P1.png")
+rasterize_and_save("test/visuals/getNpaths_P1.pdf", dpi=300)
 plt.clf()
 # Path 2
 m = init()
@@ -796,7 +992,7 @@ for ip in initPaths:
     ly = lp[::2]
     plt.plot(lx, ly)
 plt.tight_layout()
-plt.savefig("test/visuals/getNpaths_P2.png")
+rasterize_and_save("test/visuals/getNpaths_P2.pdf", dpi=300)
 plt.clf()
 # Path 3
 m = init()
@@ -821,9 +1017,8 @@ for ip in initPaths:
     ly = lp[::2]
     plt.plot(lx, ly)
 plt.tight_layout()
-plt.savefig("test/visuals/getNpaths_P3.png")
+rasterize_and_save("test/visuals/getNpaths_P3.pdf", dpi=300)
 plt.clf()
-
 
 # Plot visibility graphs
 # P1
@@ -852,21 +1047,6 @@ graphtask(P3, C3, z = 100)
 plt.title(r'Visibility graph (P3)')
 plt.tight_layout()
 plt.savefig(visgraphOut_P3)
-plt.clf()
-
-# Plot region
-m = init()
-region(m)
-plt.title(r'Boston Harbor')
-plt.tight_layout()
-plt.savefig(regionOut)
-plt.clf()
-
-# Plot region shapefile
-poly()
-plt.title(r'Boston Harbor - polygons')
-plt.tight_layout()
-plt.savefig(polyOut)
 plt.clf()
 
 # Plot Dijkstra results (Astar results are the same)
@@ -928,21 +1108,6 @@ def pltdijkstra(work):
     #legend.get_frame().set_facecolor("aliceblue")
     #legend.get_frame().set_linewidth(0.0)
 
-# Plot region
-m = init()
-region(m)
-plt.title(r'Boston Harbor')
-plt.tight_layout()
-plt.savefig(regionOut)
-plt.clf()
-
-# Plot region shapefile
-poly()
-plt.title(r'Boston Harbor - polygons')
-plt.tight_layout()
-plt.savefig(polyOut)
-plt.clf()
-
 # Plot water currents
 # W1 - t0
 m = init()
@@ -950,7 +1115,7 @@ region(m)
 currents(currentsRasterFile_mag_W1, currentsRasterFile_dir_W1)
 plt.title(r'Time = +0h ($\mathcal{W}_1$)')
 plt.tight_layout()
-plt.savefig(currentsRasterOut_W1_0)
+rasterize_and_save(currentsRasterOut_W1_0, dpi=300)
 plt.clf()
 # W1 - t1
 m = init()
@@ -958,7 +1123,7 @@ region(m)
 currents(currentsRasterFile_mag_W1, currentsRasterFile_dir_W1, band = 2)
 plt.title(r'Time = +1h ($\mathcal{W}_1$)')
 plt.tight_layout()
-plt.savefig(currentsRasterOut_W1_1)
+rasterize_and_save(currentsRasterOut_W1_1, dpi=300)
 plt.clf()
 # W1 - t2
 m = init()
@@ -966,7 +1131,7 @@ region(m)
 currents(currentsRasterFile_mag_W1, currentsRasterFile_dir_W1, band = 3)
 plt.title(r'Time = +2h ($\mathcal{W}_1$)')
 plt.tight_layout()
-plt.savefig(currentsRasterOut_W1_2)
+rasterize_and_save(currentsRasterOut_W1_2, dpi=300)
 plt.clf()
 
 # W2 - t0
@@ -975,7 +1140,7 @@ region(m)
 currents(currentsRasterFile_mag_W2, currentsRasterFile_dir_W2)
 plt.title(r'Time = +0h ($\mathcal{W}_2$)')
 plt.tight_layout()
-plt.savefig(currentsRasterOut_W2_0)
+rasterize_and_save(currentsRasterOut_W2_0, dpi=300)
 plt.clf()
 # W2 - t1
 m = init()
@@ -983,7 +1148,7 @@ region(m)
 currents(currentsRasterFile_mag_W2, currentsRasterFile_dir_W2, band = 2)
 plt.title(r'Time = +1h ($\mathcal{W}_2$)')
 plt.tight_layout()
-plt.savefig(currentsRasterOut_W2_1)
+rasterize_and_save(currentsRasterOut_W2_1, dpi=300)
 plt.clf()
 # W2 - t2
 m = init()
@@ -991,7 +1156,7 @@ region(m)
 currents(currentsRasterFile_mag_W2, currentsRasterFile_dir_W2, band = 3)
 plt.title(r'Time = +2h ($\mathcal{W}_2$)')
 plt.tight_layout()
-plt.savefig(currentsRasterOut_W2_2)
+rasterize_and_save(currentsRasterOut_W2_2, dpi=300)
 plt.clf()
 
 # W3 - t0
@@ -1000,7 +1165,7 @@ region(m)
 currents(currentsRasterFile_mag_W3, currentsRasterFile_dir_W3)
 plt.title(r'Time = +0h ($\mathcal{W}_3$)')
 plt.tight_layout()
-plt.savefig(currentsRasterOut_W3_0)
+rasterize_and_save(currentsRasterOut_W3_0, dpi=300)
 plt.clf()
 # W3 - t1
 m = init()
@@ -1008,7 +1173,7 @@ region(m)
 currents(currentsRasterFile_mag_W3, currentsRasterFile_dir_W3, band = 2)
 plt.title(r'Time = +1h ($\mathcal{W}_3$)')
 plt.tight_layout()
-plt.savefig(currentsRasterOut_W3_1)
+rasterize_and_save(currentsRasterOut_W3_1, dpi=300)
 plt.clf()
 # W3 - t2
 m = init()
@@ -1016,7 +1181,7 @@ region(m)
 currents(currentsRasterFile_mag_W3, currentsRasterFile_dir_W3, band = 3)
 plt.title(r'Time = +2h ($\mathcal{W}_3$)')
 plt.tight_layout()
-plt.savefig(currentsRasterOut_W3_2)
+rasterize_and_save(currentsRasterOut_W3_2, dpi=300)
 plt.clf()
 
 # W4 - t0
@@ -1025,7 +1190,7 @@ region(m)
 currents(currentsRasterFile_mag_W4, currentsRasterFile_dir_W4)
 plt.title(r'Time = +0h ($\mathcal{W}_4$)')
 plt.tight_layout()
-plt.savefig(currentsRasterOut_W4_0)
+rasterize_and_save(currentsRasterOut_W4_0, dpi=300)
 plt.clf()
 # W4 - t1
 m = init()
@@ -1033,7 +1198,7 @@ region(m)
 currents(currentsRasterFile_mag_W4, currentsRasterFile_dir_W4, band = 2)
 plt.title(r'Time = +1h ($\mathcal{W}_4$)')
 plt.tight_layout()
-plt.savefig(currentsRasterOut_W4_1)
+rasterize_and_save(currentsRasterOut_W4_1, dpi=300)
 plt.clf()
 # W4 - t2
 m = init()
@@ -1041,51 +1206,16 @@ region(m)
 currents(currentsRasterFile_mag_W4, currentsRasterFile_dir_W4, band = 3)
 plt.title(r'Time = +2h ($\mathcal{W}_4$)')
 plt.tight_layout()
-plt.savefig(currentsRasterOut_W4_2)
+rasterize_and_save(currentsRasterOut_W4_2, dpi=300)
 plt.clf()
 
 
-def pltReward(rFile):
-    rewardGrid = np.flipud(np.loadtxt(rFile))
-    region(m)
-    img = m.imshow(rewardGrid * rewardGrid, interpolation='nearest', zorder = 100, alpha = 1, cmap = "reward")
-    region(m, colors = cm_landonly, z = 1000)
-
-plt.rcParams.update({'font.size': 18})
-# PSO reward & work histograms
-# W1 - P1
-histPSO(0, 1, "test/visuals/pso_hist_P1_W1", TRIALS)
-# W1- P2
-histPSO(1, 1, "test/visuals/pso_hist_P2_W1", TRIALS)
-# W1 - P3
-histPSO(2, 1, "test/visuals/pso_hist_P3_W1", TRIALS)
-# W1 - P1
-histPSO(0, 2, "test/visuals/pso_hist_P1_W2", TRIALS)
-# W2- P2
-histPSO(1, 2, "test/visuals/pso_hist_P2_W2", TRIALS)
-# W2 - P3
-histPSO(2, 2, "test/visuals/pso_hist_P3_W2", TRIALS)
-# W2 - P1
-histPSO(0, 3, "test/visuals/pso_hist_P1_W3", TRIALS)
-# W3- P2
-histPSO(1, 3, "test/visuals/pso_hist_P2_W3", TRIALS)
-# W3 - P3
-histPSO(2, 3, "test/visuals/pso_hist_P3_W3", TRIALS)
-# W3 - P1
-histPSO(0, 4, "test/visuals/pso_hist_P1_W4", TRIALS)
-# W4- P2
-histPSO(1, 4, "test/visuals/pso_hist_P2_W4", TRIALS)
-# W4 - P3
-histPSO(2, 4, "test/visuals/pso_hist_P3_W4", TRIALS)
-plt.clf()
-
-plt.rcParams.update({'font.size': 14})
 rc = (153/255, 107/255, 184/255, 1)
 vgc = (199/255, 169/255, 0/255, 1)
 # PSO convergence (VG init)
 # (Time-based)
 # PSO convergence - path 1
-fig, axs = plt.subplots(1, 4, figsize = (13, 3))
+fig, axs = plt.subplots(1, 4, figsize = (5.5, 2.25))
 # Work 1
 pltPSOconvergence_2(0, 1, r_10kgens_PSOpathResDir, r_10kgens_PSOstatResStr, 234/500,  ax = axs[0], trials = TRIALS, color = rc)
 pltPSOconvergence_2(0, 1, vg_10kgens_PSOpathResDir, vg_10kgens_PSOstatResStr, 236/500,  ax = axs[0], trials = TRIALS, color = vgc)
@@ -1098,6 +1228,7 @@ axs[0].axvline(x=1112.597, color=C3, linestyle=':', label = "16-way")
 axs[0].set_ylim(4000, 8000)
 axs[0].set_xlim(0,1200)
 axs[0].set_title("$\mathcal{T}_1, \mathcal{W}_1$")
+
 # Work 2
 pltPSOconvergence_2(0, 2, r_10kgens_PSOpathResDir, r_10kgens_PSOstatResStr, 211/500, ax = axs[1], trials = TRIALS, color = rc)
 pltPSOconvergence_2(0, 2, vg_10kgens_PSOpathResDir, vg_10kgens_PSOstatResStr, 196/500, ax = axs[1], trials = TRIALS, color = vgc)
@@ -1109,7 +1240,7 @@ axs[1].axhline(y=1675.0157, color=C3, linestyle='--', label = "16-way")
 axs[1].axvline(x=949.563, color=C3, linestyle=':', label = "16-way")
 axs[1].set_ylim(1500, 8000)
 axs[1].set_xlim(0,1050)
-#axs[1].get_yaxis().set_visible(False)
+axs[1].get_yaxis().set_visible(False)
 axs[1].set_title("$\mathcal{T}_1, \mathcal{W}_2$")
 # Work 3
 pltPSOconvergence_2(0, 3, r_10kgens_PSOpathResDir, r_10kgens_PSOstatResStr, 221/500, ax = axs[2], trials = TRIALS, color = rc)
@@ -1122,7 +1253,7 @@ axs[2].axhline(y=1151.26, color=C3, linestyle='--', label = "16-way")
 axs[2].axvline(x=983.849, color=C3, linestyle=':', label = "16-way")
 axs[2].set_ylim(1050, 8000)
 axs[2].set_xlim(0,1050)
-#axs[2].get_yaxis().set_visible(False)
+axs[2].get_yaxis().set_visible(False)
 axs[2].set_title("$\mathcal{T}_1, \mathcal{W}_3$")
 # Work 4
 pltPSOconvergence_2(0, 4, r_10kgens_PSOpathResDir, r_10kgens_PSOstatResStr, 214/500, ax = axs[3], trials = TRIALS, color = rc)
@@ -1135,7 +1266,7 @@ axs[3].axhline(y=4151.432, color=C3, linestyle='--', label = "16-way")
 axs[3].axvline(x=1295.317, color=C3, linestyle=':', label = "16-way")
 axs[3].set_ylim(4000, 8000)
 axs[3].set_xlim(0,1400)
-#axs[3].get_yaxis().set_visible(False)
+axs[3].get_yaxis().set_visible(False)
 axs[3].set_title("$\mathcal{T}_1, \mathcal{W}_4$")
 #axs[0].legend(handles = [l1,l2,l3] , labels=['4-way', '8-way', '16-way'],loc='upper center', title = "Dijkstra cost",
                         #bbox_to_anchor=(1, -0.04),fancybox=False, shadow=False, ncol=3)
@@ -1143,8 +1274,9 @@ axs[3].set_title("$\mathcal{T}_1, \mathcal{W}_4$")
 plt.tight_layout()
 plt.savefig("test/visuals/pso_vg_P1_conv_2.pdf", dpi=300)
 plt.clf()
+
 # PSO convergence - path 2
-fig, axs = plt.subplots(1, 4, figsize = (13, 3))
+fig, axs = plt.subplots(1, 4, figsize = (5.5, 2.25))
 # Work 1
 pltPSOconvergence_2(1, 1, r_10kgens_PSOpathResDir, r_10kgens_PSOstatResStr, 252/500, ax = axs[0], trials = TRIALS, color = rc)
 pltPSOconvergence_2(1, 1, vg_10kgens_PSOpathResDir, vg_10kgens_PSOstatResStr, 278/500, ax = axs[0], trials = TRIALS, color = vgc)
@@ -1168,7 +1300,7 @@ axs[1].axhline(y=2773.9114, color=C3, linestyle='--', label = "16-way")
 axs[1].axvline(x=1330, color=C3, linestyle=':', label = "16-way")
 axs[1].set_ylim(2500, 8000)
 axs[1].set_xlim(0,1450)
-#axs[1].get_yaxis().set_visible(False)
+axs[1].get_yaxis().set_visible(False)
 axs[1].set_title("$\mathcal{T}_2, \mathcal{W}_2$")
 # Work 3
 pltPSOconvergence_2(1, 3, r_10kgens_PSOpathResDir, r_10kgens_PSOstatResStr, 231/500, ax = axs[2], trials = TRIALS, color = rc)
@@ -1181,7 +1313,7 @@ axs[2].axhline(y=2636.9706, color=C3, linestyle='--', label = "16-way")
 axs[2].axvline(x=1585, color=C3, linestyle=':', label = "16-way")
 axs[2].set_ylim(2500, 8000)
 axs[2].set_xlim(0,1650)
-#axs[2].get_yaxis().set_visible(False)
+axs[2].get_yaxis().set_visible(False)
 axs[2].set_title("$\mathcal{T}_2, \mathcal{W}_3$")
 # Work 4
 pltPSOconvergence_2(1, 4, r_10kgens_PSOpathResDir, r_10kgens_PSOstatResStr, 234/500, ax = axs[3], trials = TRIALS, color = rc)
@@ -1194,7 +1326,7 @@ axs[3].axhline(y=3440.4205, color=C3, linestyle='--', label = "16-way")
 axs[3].axvline(x=1045, color=C3, linestyle=':', label = "16-way")
 axs[3].set_ylim(3250, 8000)
 axs[3].set_xlim(0,1100)
-#axs[3].get_yaxis().set_visible(False)
+axs[3].get_yaxis().set_visible(False)
 axs[3].set_title("$\mathcal{T}_2, \mathcal{W}_4$")
 #axs[0].legend(handles = [l1,l2,l3] , labels=['4-way', '8-way', '16-way'],loc='upper center', title = "Dijkstra cost",
 #                          bbox_to_anchor=(1, -0.04),fancybox=False, shadow=False, ncol=3)
@@ -1203,7 +1335,7 @@ plt.tight_layout()
 plt.savefig("test/visuals/pso_vg_P2_conv_2.pdf", dpi=300)
 plt.clf()
 # PSO convergence - path 3
-fig, axs = plt.subplots(1, 4, figsize = (13, 3))
+fig, axs = plt.subplots(1, 4, figsize = (5.5, 2.25))
 # Work 1
 pltPSOconvergence_2(2, 1, r_10kgens_PSOpathResDir, r_10kgens_PSOstatResStr, 167/500, ax = axs[0], trials = TRIALS, color = rc)
 pltPSOconvergence_2(2, 1, vg_10kgens_PSOpathResDir, vg_10kgens_PSOstatResStr, 218/500, ax = axs[0], trials = TRIALS, color = vgc)
@@ -1227,7 +1359,7 @@ axs[1].axhline(y=2489.5882, color=C3, linestyle='--', label = "16-way")
 axs[1].axvline(x=701, color=C3, linestyle=':', label = "16-way")
 axs[1].set_ylim(2200, 8000)
 axs[1].set_xlim(0,750)
-#axs[1].get_yaxis().set_visible(False)
+axs[1].get_yaxis().set_visible(False)
 axs[1].set_title("$\mathcal{T}_3, \mathcal{W}_2$")
 # Work 3
 pltPSOconvergence_2(2, 3, r_10kgens_PSOpathResDir, r_10kgens_PSOstatResStr, 156/500, ax = axs[2], trials = TRIALS, color = rc)
@@ -1240,7 +1372,7 @@ axs[2].axhline(y=2593.5196, color=C3, linestyle='--', label = "16-way")
 axs[2].axvline(x=743, color=C3, linestyle=':', label = "16-way")
 axs[2].set_ylim(2300, 8000)
 axs[2].set_xlim(0,775)
-#axs[2].get_yaxis().set_visible(False)
+axs[2].get_yaxis().set_visible(False)
 axs[2].set_title("$\mathcal{T}_3, \mathcal{W}_3$")
 # Work 4
 pltPSOconvergence_2(2, 4, r_10kgens_PSOpathResDir, r_10kgens_PSOstatResStr, 169/500, ax = axs[3], trials = TRIALS, color = rc)
@@ -1253,7 +1385,7 @@ axs[3].axhline(y=2109.6257, color=C3, linestyle='--', label = "16-way")
 axs[3].axvline(x=453, color=C3, linestyle=':', label = "16-way")
 axs[3].set_ylim(1900, 8000)
 axs[3].set_xlim(0,480)
-#axs[3].get_yaxis().set_visible(False)
+axs[3].get_yaxis().set_visible(False)
 axs[3].set_title("$\mathcal{T}_3, \mathcal{W}_4$")
 #axs[0].legend(handles = [l1,l2,l3] , labels=['4-way', '8-way', '16-way'],loc='upper center', title = "Dijkstra cost",
 #                          bbox_to_anchor=(1, -0.04),fancybox=False, shadow=False, ncol=3)
@@ -1261,204 +1393,212 @@ plt.tight_layout()
 plt.savefig("test/visuals/pso_vg_P3_conv_2.pdf", dpi=300)
 plt.clf()
 
-fig, ax = plt.subplots(figsize=(12, 3))
+fig, ax = plt.subplots(figsize=(5.25, 0.5))
 custom_lines = [
-    Line2D([0], [0], linestyle = "solid", color = rc, alpha = 1.0, lw = 5),
-    Line2D([0], [0], linestyle = "solid", color = vgc, alpha = 1.0, lw = 5),
-    Line2D([0], [0], linestyle = "dashed", color = C1, alpha = 1.0, lw = 5),
-    Line2D([0], [0], linestyle = ":", color = C1, alpha = 1.0, lw = 5),
-    Line2D([0], [0], linestyle = "dashed",  color = C3,  alpha = 1.0,  lw = 5),
-    Line2D([0], [0], linestyle = ":",  color = C3,  alpha = 1.0,  lw = 5),
-    Line2D([0], [0], linestyle = "dashed",  color = C2,  alpha = 1.0,  lw = 5),
-    Line2D([0], [0], linestyle = ":",  color = C2,  alpha = 1.0,  lw = 5),
+    Line2D([0], [0], linestyle = "solid", color = rc, alpha = 1.0, lw = 3.75),
+    Line2D([0], [0], linestyle = "solid", color = vgc, alpha = 1.0, lw = 3.75),
+    Line2D([0], [0], linestyle = "dashed", color = C1, alpha = 1.0, lw = 3.75),
+    Line2D([0], [0], linestyle = ":", color = C1, alpha = 1.0, lw = 3.75),
+    Line2D([0], [0], linestyle = "dashed",  color = C3,  alpha = 1.0,  lw = 3.75),
+    Line2D([0], [0], linestyle = ":",  color = C3,  alpha = 1.0,  lw = 3.75),
+    Line2D([0], [0], linestyle = "dashed",  color = C2,  alpha = 1.0,  lw = 3.75),
+    Line2D([0], [0], linestyle = ":",  color = C2,  alpha = 1.0,  lw = 3.75),
                     ]
 custom_labels = [
     '${PSO}_{R}$', '${PSO}_{VG}$',
     "4-way cost", "4-way time", "8-way cost",
     "8-way time", "16-way cost", "16-way time",
     ]
-legend = ax.legend(custom_lines, custom_labels, loc = "upper center", ncol = 4, handlelength = 5)
+legend = ax.legend(custom_lines, custom_labels, loc = "upper center", ncol = 4, handlelength = 5.25)
 legend.get_frame().set_alpha(6.0)
 legend.get_frame().set_facecolor("white")
 legend.get_frame().set_linewidth(0.0)
+ax.axis('off')
 plt.tight_layout()
-plt.savefig("test/visuals/pso_conv_legend_2.pdf")
-plt.clf()
-
-
-# Plot reward
-rewardFile = "test/inputs/reward.txt"
-m = init()
-pltReward(rewardFile)
-plt.tight_layout()
-plt.savefig("test/visuals/reward.png")
+plt.savefig("test/visuals/pso_conv_legend_2.pdf", dpi=300)
 plt.clf()
 
 # Plot PSO with reward
 # PSO reward=500, random, W0
 m = init()
 pltReward(rewardFile)
-pltPSO(0, r_r_PSOpathResDir, r_r500_PSOpathResStr, trials = TRIALS, z = 10000)
+pltPSO(0, r_r_PSOpathResDir, r_r500_PSOpathResStr, trials = TRIALS, z = 10000, best = bestPSO_r500)
 plt.title(r'PSO results ($\mathcal{W}_0$)')
 plt.tight_layout()
-plt.savefig("test/visuals/pso_rand_R500_W0.png")
+rasterize_and_save("test/visuals/pso_rand_R500_W0.pdf", dpi=300)
 plt.clf()
 # PSO reward=500, random, W1
 m = init()
 pltReward(rewardFile)
-pltPSO(1, r_r_PSOpathResDir, r_r500_PSOpathResStr, trials = TRIALS, z = 10000)
+pltPSO(1, r_r_PSOpathResDir, r_r500_PSOpathResStr, trials = TRIALS, z = 10000, best = bestPSO_r500)
 plt.title(r'PSO results ($\mathcal{W}_0$)')
 plt.tight_layout()
-plt.savefig("test/visuals/pso_rand_R500_W1.png")
+rasterize_and_save("test/visuals/pso_rand_R500_W1.pdf", dpi=300)
 plt.clf()
 # PSO reward=500, random, W2
 m = init()
 pltReward(rewardFile)
-pltPSO(2, r_r_PSOpathResDir, r_r500_PSOpathResStr, trials = TRIALS, z = 10000)
+pltPSO(2, r_r_PSOpathResDir, r_r500_PSOpathResStr, trials = TRIALS, z = 10000, best = bestPSO_r500)
 plt.title(r'PSO results ($\mathcal{W}_0$)')
 plt.tight_layout()
-plt.savefig("test/visuals/pso_rand_R500_W2.png")
+rasterize_and_save("test/visuals/pso_rand_R500_W2.pdf", dpi=300)
 plt.clf()
 # PSO reward=500, random, W3
 m = init()
 pltReward(rewardFile)
-pltPSO(3, r_r_PSOpathResDir, r_r500_PSOpathResStr, trials = TRIALS, z = 10000)
+pltPSO(3, r_r_PSOpathResDir, r_r500_PSOpathResStr, trials = TRIALS, z = 10000, best = bestPSO_r500)
 plt.title(r'PSO results ($\mathcal{W}_0$)')
 plt.tight_layout()
-plt.savefig("test/visuals/pso_rand_R500_W3.png")
+rasterize_and_save("test/visuals/pso_rand_R500_W3.pdf", dpi=300)
 plt.clf()
 # PSO reward=500, random, W4
 m = init()
 pltReward(rewardFile)
-pltPSO(4, r_r_PSOpathResDir, r_r500_PSOpathResStr, trials = TRIALS, z = 10000)
+pltPSO(4, r_r_PSOpathResDir, r_r500_PSOpathResStr, trials = TRIALS, z = 10000, best = bestPSO_r500)
 plt.title(r'PSO results ($\mathcal{W}_0$)')
 plt.tight_layout()
-plt.savefig("test/visuals/pso_rand_R500_W4.png")
+rasterize_and_save("test/visuals/pso_rand_R500_W4.pdf", dpi=300)
 plt.clf()
 # PSO reward=1000, random, W0
 m = init()
 pltReward(rewardFile)
-pltPSO(0, r_r_PSOpathResDir, r_r1000_PSOpathResStr, trials = TRIALS, z = 10000)
+pltPSO(0, r_r_PSOpathResDir, r_r1000_PSOpathResStr, trials = TRIALS, z = 10000, best = bestPSO_r1000)
 plt.title(r'PSO results ($\mathcal{W}_0$)')
 plt.tight_layout()
-plt.savefig("test/visuals/pso_rand_R1000_W0.png")
+rasterize_and_save("test/visuals/pso_rand_R1000_W0.pdf", dpi=300)
 plt.clf()
 # PSO reward=1000, random, W1
 m = init()
 pltReward(rewardFile)
-pltPSO(1, r_r_PSOpathResDir, r_r1000_PSOpathResStr, trials = TRIALS, z = 10000)
+pltPSO(1, r_r_PSOpathResDir, r_r1000_PSOpathResStr, trials = TRIALS, z = 10000, best = bestPSO_r1000)
 plt.title(r'PSO results ($\mathcal{W}_0$)')
 plt.tight_layout()
-plt.savefig("test/visuals/pso_rand_R1000_W1.png")
+rasterize_and_save("test/visuals/pso_rand_R1000_W1.pdf", dpi=300)
 plt.clf()
 # PSO reward=1000, random, W2
 m = init()
 pltReward(rewardFile)
-pltPSO(2, r_r_PSOpathResDir, r_r1000_PSOpathResStr, trials = TRIALS, z = 10000)
+pltPSO(2, r_r_PSOpathResDir, r_r1000_PSOpathResStr, trials = TRIALS, z = 10000, best = bestPSO_r1000)
 plt.title(r'PSO results ($\mathcal{W}_0$)')
 plt.tight_layout()
-plt.savefig("test/visuals/pso_rand_R1000_W2.png")
+rasterize_and_save("test/visuals/pso_rand_R1000_W2.pdf", dpi=300)
 plt.clf()
 # PSO reward=1000, random, W3
 m = init()
 pltReward(rewardFile)
-pltPSO(3, r_r_PSOpathResDir, r_r1000_PSOpathResStr, trials = TRIALS, z = 10000)
+pltPSO(3, r_r_PSOpathResDir, r_r1000_PSOpathResStr, trials = TRIALS, z = 10000, best = bestPSO_r1000)
 plt.title(r'PSO results ($\mathcal{W}_0$)')
 plt.tight_layout()
-plt.savefig("test/visuals/pso_rand_R1000_W3.png")
+rasterize_and_save("test/visuals/pso_rand_R1000_W3.pdf", dpi=300)
 plt.clf()
 # PSO reward=1000, random, W4
 m = init()
 pltReward(rewardFile)
-pltPSO(4, r_r_PSOpathResDir, r_r1000_PSOpathResStr, trials = TRIALS, z = 10000)
+pltPSO(4, r_r_PSOpathResDir, r_r1000_PSOpathResStr, trials = TRIALS, z = 10000, best = bestPSO_r1000)
 plt.title(r'PSO results ($\mathcal{W}_0$)')
 plt.tight_layout()
-plt.savefig("test/visuals/pso_rand_R1000_W4.png")
+rasterize_and_save("test/visuals/pso_rand_R1000_W4.pdf", dpi=300)
 plt.clf()
 
 # Plot PSO with reward
 # PSO reward=500, VG, W0
 m = init()
 pltReward(rewardFile)
-pltPSO(0, vg_r_PSOpathResDir, vg_r500_PSOpathResStr, trials = TRIALS, z = 10000)
+pltPSO(0, vg_r_PSOpathResDir, vg_r500_PSOpathResStr, trials = TRIALS, z = 10000, best = bestPSO_VG_r500)
 plt.title(r'PSO results ($\mathcal{W}_0$)')
 plt.tight_layout()
-plt.savefig("test/visuals/pso_vgR500_W0.png")
+rasterize_and_save("test/visuals/pso_vgR500_W0.pdf", dpi=300)
 plt.clf()
 # PSO reward=500, VG, W1
 m = init()
 pltReward(rewardFile)
-pltPSO(1, vg_r_PSOpathResDir, vg_r500_PSOpathResStr, trials = TRIALS, z = 10000)
+pltPSO(1, vg_r_PSOpathResDir, vg_r500_PSOpathResStr, trials = TRIALS, z = 10000, best = bestPSO_VG_r500)
 plt.title(r'PSO results ($\mathcal{W}_0$)')
 plt.tight_layout()
-plt.savefig("test/visuals/pso_vgR500_W1.png")
+rasterize_and_save("test/visuals/pso_vgR500_W1.pdf", dpi=300)
 plt.clf()
 # PSO reward=500, VG, W2
 m = init()
 pltReward(rewardFile)
-pltPSO(2, vg_r_PSOpathResDir, vg_r500_PSOpathResStr, trials = TRIALS, z = 10000)
+pltPSO(2, vg_r_PSOpathResDir, vg_r500_PSOpathResStr, trials = TRIALS, z = 10000, best = bestPSO_VG_r500)
 plt.title(r'PSO results ($\mathcal{W}_0$)')
 plt.tight_layout()
-plt.savefig("test/visuals/pso_vgR500_W2.png")
+rasterize_and_save("test/visuals/pso_vgR500_W2.pdf", dpi=300)
 plt.clf()
 # PSO reward=500, VG, W3
 m = init()
 pltReward(rewardFile)
-pltPSO(3, vg_r_PSOpathResDir, vg_r500_PSOpathResStr, trials = TRIALS, z = 10000)
+pltPSO(3, vg_r_PSOpathResDir, vg_r500_PSOpathResStr, trials = TRIALS, z = 10000, best = bestPSO_VG_r500)
 plt.title(r'PSO results ($\mathcal{W}_0$)')
 plt.tight_layout()
-plt.savefig("test/visuals/pso_vgR500_W3.png")
+rasterize_and_save("test/visuals/pso_vgR500_W3.pdf", dpi=300)
 plt.clf()
 # PSO reward=500, VG, W4
 m = init()
 pltReward(rewardFile)
-pltPSO(4, vg_r_PSOpathResDir, vg_r500_PSOpathResStr, trials = TRIALS, z = 10000)
+pltPSO(4, vg_r_PSOpathResDir, vg_r500_PSOpathResStr, trials = TRIALS, z = 10000, best = bestPSO_VG_r500)
 plt.title(r'PSO results ($\mathcal{W}_0$)')
 plt.tight_layout()
-plt.savefig("test/visuals/pso_vgR500_W4.png")
+rasterize_and_save("test/visuals/pso_vgR500_W4.pdf", dpi=300)
 plt.clf()
 # PSO reward=1000, VG, W0
 m = init()
 pltReward(rewardFile)
-pltPSO(0, vg_r_PSOpathResDir, vg_r1000_PSOpathResStr, trials = TRIALS, z = 10000)
+pltPSO(0, vg_r_PSOpathResDir, vg_r1000_PSOpathResStr, trials = TRIALS, z = 10000, best = bestPSO_VG_r1000)
 plt.title(r'PSO results ($\mathcal{W}_0$)')
 plt.tight_layout()
-plt.savefig("test/visuals/pso_vgR1000_W0.png")
+rasterize_and_save("test/visuals/pso_vgR1000_W0.pdf", dpi=300)
 plt.clf()
 # PSO reward=1000, VG, W1
 m = init()
 pltReward(rewardFile)
-pltPSO(1, vg_r_PSOpathResDir, vg_r1000_PSOpathResStr, trials = TRIALS, z = 10000)
+pltPSO(1, vg_r_PSOpathResDir, vg_r1000_PSOpathResStr, trials = TRIALS, z = 10000, best = bestPSO_VG_r1000)
 plt.title(r'PSO results ($\mathcal{W}_0$)')
 plt.tight_layout()
-plt.savefig("test/visuals/pso_vgR1000_W1.png")
+rasterize_and_save("test/visuals/pso_vgR1000_W1.pdf", dpi=300)
 plt.clf()
 # PSO reward=1000, VG, W2
 m = init()
 pltReward(rewardFile)
-pltPSO(2, vg_r_PSOpathResDir, vg_r1000_PSOpathResStr, trials = TRIALS, z = 10000)
+pltPSO(2, vg_r_PSOpathResDir, vg_r1000_PSOpathResStr, trials = TRIALS, z = 10000, best = bestPSO_VG_r1000)
 plt.title(r'PSO results ($\mathcal{W}_0$)')
 plt.tight_layout()
-plt.savefig("test/visuals/pso_vgR1000_W2.png")
+rasterize_and_save("test/visuals/pso_vgR1000_W2.pdf", dpi=300)
 plt.clf()
 # PSO reward=1000, VG, W3
 m = init()
 pltReward(rewardFile)
-pltPSO(3, vg_r_PSOpathResDir, vg_r1000_PSOpathResStr, trials = TRIALS, z = 10000)
+pltPSO(3, vg_r_PSOpathResDir, vg_r1000_PSOpathResStr, trials = TRIALS, z = 10000, best = bestPSO_VG_r1000)
 plt.title(r'PSO results ($\mathcal{W}_0$)')
 plt.tight_layout()
-plt.savefig("test/visuals/pso_vgR1000_W3.png")
+rasterize_and_save("test/visuals/pso_vgR1000_W3.pdf", dpi=300)
 plt.clf()
 # PSO reward=1000, VG, W4
 m = init()
 pltReward(rewardFile)
-pltPSO(4, vg_r_PSOpathResDir, vg_r1000_PSOpathResStr, trials = TRIALS, z = 10000)
+pltPSO(4, vg_r_PSOpathResDir, vg_r1000_PSOpathResStr, trials = TRIALS, z = 10000, best = bestPSO_VG_r1000)
 plt.title(r'PSO results ($\mathcal{W}_0$)')
 plt.tight_layout()
-plt.savefig("test/visuals/pso_vgR1000_W4.png")
+rasterize_and_save("test/visuals/pso_vgR1000_W4.pdf", dpi=300)
+plt.clf()
+# Legend
+fig, ax = plt.subplots(figsize=(3.5, 0.4))
+custom_lines = [Line2D([0], [0], linestyle = "solid", color = C1, alpha = 1.0, lw = 5),
+                    Line2D([0], [0], linestyle = "solid",  color = C2,  alpha = 1.0,  lw = 5),
+                    Line2D([0], [0], linestyle = "solid",  color = C3,  alpha = 1.0,  lw = 5),
+                    ]
+custom_labels = ["$\mathcal{T}_1$ trials", "$\mathcal{T}_2$ trials", "$\mathcal{T}_3$ trials",
+    ]
+legend = ax.legend(custom_lines, custom_labels, loc = "upper center", ncol = 3, handlelength = 4)
+legend.get_frame().set_alpha(6.0)
+legend.get_frame().set_facecolor("white")
+legend.get_frame().set_linewidth(0.0)
+ax.axis('off')
+plt.tight_layout()
+plt.savefig("test/visuals/pso_legend_2.pdf")
 plt.clf()
 
-plt.rcParams.update({'font.size': 18})
+
 # PSO convergence (random init)
 # PSO convergence - path 1
 fig, axs = plt.subplots(1, 4, figsize = (5.5, 4))
@@ -1702,4 +1842,55 @@ plt.subplots_adjust(wspace = 0.25)
 plt.savefig("test/visuals/pso_vg_P3_conv.pdf", dpi=300)
 plt.clf()
 
+
+
+
+###################
+# Unused in paper #
+###################
+
+# Exit because we don't want these
+exit(0)
+
+# Plot region
+m = init()
+region(m)
+plt.title(r'Boston Harbor')
+plt.tight_layout()
+rasterize_and_save(regionOut, dpi=300)
+plt.clf()
+
+# Plot region shapefile
+poly()
+plt.title(r'Boston Harbor - polygons')
+plt.tight_layout()
+rasterize_and_save(polyOut, dpi=300)
+plt.clf()
+
+# PSO reward & work histograms
+# W1 - P1
+histPSO(0, 1, "test/visuals/pso_hist_P1_W1", TRIALS)
+# W1- P2
+histPSO(1, 1, "test/visuals/pso_hist_P2_W1", TRIALS)
+# W1 - P3
+histPSO(2, 1, "test/visuals/pso_hist_P3_W1", TRIALS)
+# W1 - P1
+histPSO(0, 2, "test/visuals/pso_hist_P1_W2", TRIALS)
+# W2- P2
+histPSO(1, 2, "test/visuals/pso_hist_P2_W2", TRIALS)
+# W2 - P3
+histPSO(2, 2, "test/visuals/pso_hist_P3_W2", TRIALS)
+# W2 - P1
+histPSO(0, 3, "test/visuals/pso_hist_P1_W3", TRIALS)
+# W3- P2
+histPSO(1, 3, "test/visuals/pso_hist_P2_W3", TRIALS)
+# W3 - P3
+histPSO(2, 3, "test/visuals/pso_hist_P3_W3", TRIALS)
+# W3 - P1
+histPSO(0, 4, "test/visuals/pso_hist_P1_W4", TRIALS)
+# W4- P2
+histPSO(1, 4, "test/visuals/pso_hist_P2_W4", TRIALS)
+# W4 - P3
+histPSO(2, 4, "test/visuals/pso_hist_P3_W4", TRIALS)
+plt.clf()
 
