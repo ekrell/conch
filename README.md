@@ -91,7 +91,7 @@ The VG is used to quickly generate a set of initial candidate solution paths to 
 
         # Solve 
         python3 planners/metaplanner.py \
-            -r test/inputs/full.tif \             # Input occupancy grid raster (GeoTiff)
+            -r $INDIR/full.tif \                  # Input occupancy grid raster (GeoTiff)
             --currents_mag $INDIR/20170503_magwater.tiff \  # Water currents magnitudes raster (GeoTiff)
             --currents_dir $INDIR/20170503_dirwater.tiff \  # Water currents directions raster (GeoTiff)
             --sy 42.32343 \                       # Start y coord (latitude)
@@ -122,7 +122,7 @@ The PSO initial population is randomly generated.
 
         # Solve 
         python3 planners/metaplanner.py \
-            -r test/inputs/full.tif \             # Input occupancy grid raster (GeoTiff)
+            -r $INDIR/full.tif \                  # Input occupancy grid raster (GeoTiff)
             --currents_mag $INDIR/20170503_magwater.tiff \  # Water currents magnitudes raster (GeoTiff)
             --currents_dir $INDIR/20170503_dirwater.tiff \  # Water currents directions raster (GeoTiff)
             --sy 42.32343 \                       # Start y coord (latitude)
@@ -135,10 +135,47 @@ The PSO initial population is randomly generated.
             --num_waypoints 5 \                   # Number of waypoints in PSO solution
             --map $OUTDIR/sample_pso_path_2.png \   # Output figure of solution path
             --path $OUTDIR/sample_pso_path_2.txt \  # Output path waypoints
-            > $OUTDIR/sample_pso_stats_2.out        # Output path information 
+            > $OUTDIR/sample_pso_stats_2_out.txt        # Output path information 
 
 
-### Dijkstra or A* on uniform grids or visibility graphs
+### Dijkstra on Uniform Graphs or Visibility Graphs
+
+Dijkstra is used to generate a solution for a path planning problem.
+Given water current forecasts, Dijkstra will optimize the path based on energy efficiency.
+
+#### Using a Uniform Graph
+
+In this example, using an 8-way neighborhood.
+
+        # Setup variables
+        INDIR=test/inputs/
+        OUTDIR=test/outputs/
+
+        # Generate Uniform Graph from raster
+        python3 planners/gplanner_build.py \
+            --region $INDIR/full.tif \             # Input occupancy grid raster (GeoTiff)
+            --graph $OUTDIR/sample_uni_8.pickle \  # Output pickled graph
+            --nhood_type 8                         # Number of neighbors (accepts: 4, 8, 16)
+
+        # Solve
+        python3 planners/graphplanner.py \
+            --region $INDIR/full.tif \                  # Input occupancy grid raster (GeoTiff) 
+            --graph $OUTDIR/sample_uni_8.pickle         # Input 8-way neighborhood Uniform Graph
+            --speed 0.5                                 # Constant target boat speed
+            --sy 42.32343 \                             # Start y coord (latitude)
+            --sx -70.99428 \                            # Start x coord (longitude)
+            --dy 42.33600 \                             # Goal y coord (latitude)
+            --dx -70.88737 \                            # Goal x coord (longitude)
+            --solver dijkstra \                         # Select solver (dijkstra, A*) 
+            --map $OUTDIR/sample_uni_8_path.png         # Output figure of solution path
+            --trace  $OUTDIR/sample_uni_8_trace.png     # Output figure of visited nodes
+            --path  $OUTDIR/sample_uni_8_path.txt       # Output path waypoints
+            > $OUTDIR/sample_dijkstra_stats_out.txt     # Output path information 
+
+
+
+#### Using a Visibility Graph
+
 
 
 # Repo organization
