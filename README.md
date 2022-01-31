@@ -168,6 +168,8 @@ In this example, using an 8-way neighborhood.
         # Solve
         python3 planners/graphplanner.py \
             --region $INDIR/full.tif \                           # Input occupancy grid raster (GeoTiff) 
+            --currents_mag $INDIR/20170503_magwater.tiff \       # Water currents magnitudes raster (GeoTiff)
+            --currents_dir $INDIR/20170503_dirwater.tiff \       # Water currents directions raster (GeoTiff)
             --graph $OUTDIR/sample_uni_8.pickle \                # Input 8-way neighborhood Uniform Graph
             --speed 0.5 \                                        # Constant target boat speed
             --sy 42.32343 \                                      # Start y coord (latitude)
