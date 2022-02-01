@@ -4,9 +4,11 @@
 
 The purpose of this tutorial is to demonstrate the use of software repositories [whelk](https://github.com/ekrell/whelk) and [conch](https://github.com/ekrell/conch) to generate an energy efficient path for an [autonomous surface vehicle (ASV)](https://www.sciencedirect.com/topics/earth-and-planetary-sciences/surface-vehicle). 
 
-Consider the following planning mission. You are located on a vessel in Boston Harbor and are going to deploy an ASV that will navigate to a target location. The vehicle is equipped with an [onboard controller](https://www.hindawi.com/journals/mpe/2018/7371829/) capable of maintaining a heading and desired speed to reach a target location. To effectively navigate to the target, the controller requires a plan: a sequence of waypoints that form an obstacle-free path from vehicle’s current location to the goal. The following figure shows the ASV's **start** and **goal** locations. 
+Consider the following planning mission. You are located on a vessel in [Boston Harbor](https://en.wikipedia.org/wiki/Boston_Harbor) and are going to deploy an ASV that will navigate to a target location. The vehicle is equipped with an [onboard controller](https://www.hindawi.com/journals/mpe/2018/7371829/) capable of maintaining a heading and desired speed to reach a target location. To effectively navigate to the target, the controller requires a plan: a sequence of waypoints that form an obstacle-free path from vehicle’s current location to the goal. The following figure shows the ASV's **start** and **goal** locations. 
 
 ![Map of Boston Harbor showing start and goal locations](figures/boston_harbor_task.png)
+<br/> 
+(Modified from [Google Maps](https://www.google.com/maps/@42.3297137,-70.9583346,14z))
 
 Clearly the vessel cannot travel in a straight line to reach the goal - Spectacle Island is in the way. 
 The most obvious planning criteria is that the path should be **feasible**: the vehicle cannot navigate through obstacles. 
