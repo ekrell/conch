@@ -163,7 +163,41 @@ I made this file manually with a text editor. In real life, reward values could 
 
 ## Step 2: Generate path
 
+### Example 1: shortest-distance planning
+
+Inputs: region map. 
+
+    python3 conch/planners/metaplanner.py \
+        -r conch/test/inputs/full.tif \        # Input region raster
+        --sy 42.32343 --sx -70.99428 \         # Start coordinates
+        --dy 42.33600 --dx -70.88737 \         # Goal coordinates
+        --speed 0.5 \                          # Target boat speed
+        --generations 500 \                    # Number of PSO generations
+        --pool_size 100 \                      # PSO pool size
+        --num_waypoints 5 \                    # Number of waypoints
+        --map dist.png \                       # Output plot of path
+        --path dist.txt                        # Output path waypoints
+
+Output plot of path:
+
+![Plot of solution path](figures/sample_path_dist.png)
 
 
+### Example 2: energy-efficient planning 
+
+Inputs: region map, water currents.
+
+Discuss visibility graphs... 
+
+
+**NEED: image of path with currents**
+
+### Example 3: opportunistic reward-based planning
+
+Inputs: region map, water currents, reward.
+
+**NEED: image of path with currents and reward**
 
 ## Conclusions
+
+
