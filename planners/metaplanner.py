@@ -221,6 +221,18 @@ class solvePath:
                     + (-1 * reward * self.weights[2])
                     + (obs * obs * 100)]
 
+    def get_bounds(self):
+        lowerBounds = np.zeros(self.dim)
+        upperBounds = np.zeros(self.dim)
+        for i in range(self.dim):
+            if i % 2 == 0:
+                lowerBounds[i] = self.b[0]
+                upperBounds[i] = self.b[1]
+            else:
+                lowerBounds[i] = self.b[2]
+                upperBounds[i] = self.b[3]
+        return (lowerBounds, upperBounds)
+
     def get_name(self):
         return "Metaplanner: USV path planning using metaheuristics"
 
