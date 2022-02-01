@@ -45,6 +45,8 @@ and reward at a given raster location.
     $ git clone git@github.com:ekrell/whelk.git
     $ git clone git@github.com:ekrell/conch.git
 
+Check the [`whelk`](https://github.com/ekrell/whelk) and ['conch'](https://github.com/ekrell/conch) repos to see what dependencies they require. 
+
 ### Region map (occupancy grid)
 
 ![Plot of Boston Harbor occupancy grid](figures/boston_harbor_region.png)
@@ -167,7 +169,7 @@ I made this file manually with a text editor. In real life, reward values could 
 
 ### Example 1: shortest-distance planning
 
-Inputs: region map. 
+**Inputs:** region map. 
 
     python3 conch/planners/metaplanner.py \
         -r conch/test/inputs/full.tif \        # Input region raster
@@ -187,12 +189,96 @@ Output plot of path:
 
 ### Example 2: energy-efficient planning 
 
-Inputs: region map, water currents.
+**Inputs:** region map, water currents.
 
-Discuss visibility graphs... 
+The water currents introduce additional challenge. 
+Their complex spatio-temporal structure yields a complex search space.
+There are likely to be many opportunities for PSO to fall into a [local optima](https://www.sciencedirect.com/science/article/pii/S0304397514004150). 
+You might get lucky and get a solution that approaches the optimal or end up with a very inefficient path. 
 
+In our experiments, we found that PSO convergence was much more reliable when
+combined with a [**Visibility Graph**](https://en.wikipedia.org/wiki/Visibility_graph). 
+This is a graph representation of the environment where the only paths that can be made
+are those that touch obstacle corners. This is because shortest-distance paths will
+touch the corners (unless there is no obstacle blocking the destination,
+in which case the plan is trivial anyway). 
 
-**NEED: image of path with currents**
+But we are no longer performing shortest distance planning, so how can this help?
+We have no guarantees that the energy-efficient path will touch corners, 
+in fact it seems unlikely. We need to rich search space of the entire grid
+to make strategic waypoint selection w.r.t. the water currents. 
+
+Metaheuristic search algorithms, like Particle Swarm Optimization, 
+typically start with a random set of candidate solutions. 
+Then, for many iterations, these solutions are modified in some way
+to optimize the fitness. Instead of using a random initial population, 
+we found that we could generate a set of feasible paths from the
+Visibility Graph to serve as the initial population. 
+Since these are not the final path, we simplify the shapes of the 
+polygons somewhat to save computation time. Highly complex polygons
+can yield massive Visibility Graphs. 
+
+Solving a set of paths (using [A*](https://en.wikipedia.org/wiki/A*_search_algorithm)) using the Visibility Graphs
+yields a initial population of obstacle-free paths that are
+a good starting point for PSO. Clearly this step must be fast,
+or you might as well just solve the problem with a classic algorithm 
+like [Dijkstra's](https://en.wikipedia.org/wiki/Dijkstra%27s_algorithm).
+
+##### Convert the region raster to Visibility Graph
+
+    python3 conch/planners/vgplanner_build.py \
+        -r conch/test/inputs/full.tif \      # Input region raster
+        -g vg.graph \                        # Output Visibility Graph
+        -s poly.shp \                        # Shapefile of simplified obstacle polygons    
+        -m poly.png \                        # Plot of simplified obstacle polygons
+        -v vg.png \                          # Plot of Visibility Graph
+        -n 4 \                               # Number of parallel workers
+        --build                # Actually build it, instead of only showing the polygons
+
+![Plot of Visibility Graph](figures/sample_vg.png)
+
+##### Add start, goal coordinates to the Visibility Graph
+
+    python3 conch/planners/vg2g.py \
+        -r conch/test/inputs/full.tif \     # Input region raster
+        -v vg.graph \                       # Input Visibility Graph
+        --sy 42.32343 --sx -70.99428 \      # Start coordinates
+        --dy 42.33600 --dx -70.88737 \      # Goal coorindates
+        -o vg.pickle                        # Output Visibility Graph
+
+##### Generate initial PSO population: solve 100 paths with A*
+
+    python3 conch/planners/getNpaths.py \
+        -r conch/test/inputs/full.tif \     # Input region raster
+        --graph vg.pickle \                 # Input Visibility Graph
+        --n_paths 100 \                     # Number of paths to solve
+        --sy 42.32343 --sx -70.99428 \      # Start coordinates
+        --dy 42.33600 --dx -70.88737 \      # Goal coorindates
+        --paths initpop.txt
+        
+![Plot of initial PSO population](figures/sample_initpop.png)
+
+##### Solve energy-efficient path with PSO
+
+    python3 conch/planners/metaplanner.py \
+        -r conch/test/inputs/full.tif \        # Input region raster
+        --currents_mag forecast_mwater.tiff \  # Input water current magnitudes
+        --currents_dir forecast_dwater.tiff \  # Input water current directions
+        --init_pop initpop.txt \               # Input initial population
+        --sy 42.32343 --sx -70.99428 \         # Start coordinates
+        --dy 42.33600 --dx -70.88737 \         # Goal coordinates
+        --speed 0.5 \                          # Target boat speed
+        --generations 500 \                    # Number of PSO generations
+        --pool_size 100 \                      # PSO pool size
+        --num_waypoints 5 \                    # Number of waypoints
+        --map energy.png \                     # Output plot of path
+        --path energy.txt                      # Output path waypoints
+
+Output plot of path:
+
+![Plot of solution path](figures/sample_path_energy.png)
+
+The path takes a longer route to avoid the strong currents that are present along the shortest-distance path. 
 
 ### Example 3: opportunistic reward-based planning
 
