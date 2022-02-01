@@ -148,8 +148,11 @@ like the opposite of what we want. But there is the `--reverse` option that make
     conch  forecast_dwater.tiff  forecast_height.tiff  forecast_mwater.tiff  forecast.png  
     forecast_salinity.tiff  forecast_uwater.tiff  forecast_vwater.tiff  whelk
     
-    
-    
+### Reward
+
+![Plot of Boston Harbor synthetic reward](figures/boston_harbor_reward.png)
+
+synthetic reward grid.... 
 
 
 ## Step 2: Generate path
