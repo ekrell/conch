@@ -148,11 +148,22 @@ like the opposite of what we want. But there is the `--reverse` option that make
     conch  forecast_dwater.tiff  forecast_height.tiff  forecast_mwater.tiff  forecast.png  
     forecast_salinity.tiff  forecast_uwater.tiff  forecast_vwater.tiff  whelk
     
-    
-    
+### Reward
 
+![Plot of Boston Harbor synthetic reward](figures/boston_harbor_reward.png)
+
+A sample reward raster is included in the `conch` repo ([`test/inputs/reward.txt`](test/inputs/reward.txt)).
+This is a simple ASCII txt file where each number represents the reward value.
+Again, it is critical that the dimensions (rows, columns) match the region raster. 
+The reward values are plotted on the map above. The white pixels are lower reward and darker purples are more. 
+Where you see the ocean, there is no reward.
+
+I made this file manually with a text editor. In real life, reward values could originate from [satellite imagery](https://www.researchgate.net/publication/221071829_Towards_marine_bloom_trajectory_prediction_for_AUV_mission_planning),
+[ocean model outputs](https://www.researchgate.net/publication/331053847_Path_planning_of_multiple_autonomous_marine_vehicles_for_adaptive_sampling_using_Voronoi-based_ant_colony_optimization), [previous ASV missions](https://www.researchgate.net/publication/282423266_Data-driven_robotic_sampling_for_marine_ecosystem_monitoring), etc. 
 
 ## Step 2: Generate path
+
+
 
 
 ## Conclusions
