@@ -22,11 +22,11 @@ If we have a vector field of the spatio-temporal water currents over the extent 
 
 If we have a map of Boston Harbor and the local water current forecasts, then we should be able to plan a route for energy-efficient and obstacle-free ASV navigation. In this tutorial, we will use planning software in the `conch` repository to do so. 
 
-Now consider why the ASV is going to that goal location. In our fictitious scenario, suppose that the vehicle is going to use its onboard sensors to collect detailed data on an [eelgrass habitat at that location](http://oceans.mit.edu/news/featured-stories/mit-sea-grass-work-featured-york-times.html). Now suppose that the vehicle's energy efficient route has the vehicle navigating close to other patches of seagrass along the way. Without explicitly targeting those patches, we might get more useful data from the mission if the waypoints were slightly modified so that the ASV passes over and samples those patches. We call this **opportunistic reward-based planning.** Unlike [coverage planners](https://www.researchgate.net/publication/221071829_Towards_marine_bloom_trajectory_prediction_for_AUV_mission_planning) that seek to maximize the sampling reward within time/energy constraints, we are proposing to still perform a point-to-point planning but with slightly relaxed efficiency constraints to take advantage of nearby sampling opportunities. In this tutorial, we will demonstrate using a raster grid of reward values to achieve opportunistic reward-based planning. For simplicity, we will rely on a synthetic reward grid. But it is based on real-world applications. Consider using satellite imagery to get coarse visual dataon habitat locations, then following up with the ASV for detailed water measurements and underwater imagery. 
+Now consider why the ASV is going to that goal location. In our fictitious scenario, suppose that the vehicle is going to use its onboard sensors to collect detailed data on an [eelgrass habitat at that location](http://oceans.mit.edu/news/featured-stories/mit-sea-grass-work-featured-york-times.html). Now suppose that the vehicle's energy efficient route has the vehicle navigating close to other patches of seagrass along the way. Without explicitly targeting those patches, we might get more useful data from the mission if the waypoints were slightly modified so that the ASV passes over and samples those patches. We call this **opportunistic reward-based planning.** Unlike [coverage planners](https://www.researchgate.net/publication/221071829_Towards_marine_bloom_trajectory_prediction_for_AUV_mission_planning) that seek to maximize the sampling reward within time/energy constraints, we are proposing to still perform a point-to-point planning but with slightly relaxed efficiency constraints to take advantage of nearby sampling opportunities. In this tutorial, we will demonstrate using a raster grid of reward values to achieve opportunistic reward-based planning. For simplicity, we will rely on a synthetic reward grid. But it is based on real-world applications. Consider using satellite imagery to get coarse visual data on habitat locations, then following up with the ASV for detailed water measurements and underwater imagery. 
 
 This tutorial will explain:
 
-1. How to aquire the input data to represent the planning environment (map of obstacles, water current forecasts, & reward)
+1. How to acquire the input data to represent the planning environment (map of obstacles, water current forecasts, & reward)
 2. How to use **Visibility Graphs** and **Particle Swarm Optimization** to generate a solution path
 
 ## Step 1: Acquire data 
@@ -74,7 +74,7 @@ Now we will use `whelk` to generate a raster of water current forecasts.
 So that we can see the entire forecast in a 2D plot, we will use a single forecast time step.
 
 Use the geospatial metadata from the region map to set the correct options
-to generate compatable forecasts. Specifically, we need to know the world
+to generate compatible forecasts. Specifically, we need to know the world
 coordinates (lat, lon) of the top-left and bottom-right corners as well as
 the number of raster rows and columns. 
 
