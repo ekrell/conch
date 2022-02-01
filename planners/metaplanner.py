@@ -1,4 +1,41 @@
 #!/usr/bin/python3
+"""Surface vessel path planning using metaheuristic search algorithms.
+
+The path can be optimized based on distance, energy consumption, and reward.
+These objectives are combined with a weighted sum fitness function.
+
+Planning is performed to navigate from a given start to goal coordinates.
+Optimization is based on the environment, i.e., coastlines, water current
+forecasts, and sampling reward. These are provided to the software in the
+form of rasters of equal dimensions (rows, cols, grid spacing).
+At minimum, the region (i.e. coast, islands) are required for obstacle avoidance.
+More planning considerations are enabled by providing the other rasters.
+
+The metaheuristic search algorithms are implemented by the PaGMO optimization
+library, The pygmo python bindings are used to allow the user to choose from
+the following: Particle Swarm Optimization, Genetic Algorithm, Artificial Bee
+Colony, Differential Evolution.
+
+Typically, metaheuristic search algorithms begin with a random initial
+population of candidate solutions. In our research, we have found that
+we achieve more reliable convergence using an initial population of diverse,
+but feasible paths in the search space. Thus, we allow the user to supply
+a file of paths in the form of waypoints.
+
+For detailed information, see <https://github.com/ekrell/conch>.
+
+This program is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with
+this program. If not, see <http://www.gnu.org/licenses/>.
+"""
+
+__author__ = "Evan Krell"
+__contact__ = "evan.krell@tamucc.edu"
+__email__ = "evan.krell@tamucc.edu"
+__license__ = "GPLv3"
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -36,10 +73,100 @@ def haversine_np(lon1, lat1, lon2, lat2):
     km = 6367 * c
     return km
 
+
 class solvePath:
+    """Defines a path planning problem to be solved with PaGMO library.
+
+    The class is used to define a problem as
+
+        prob = pg.problem(
+            solvePath(
+                start,
+                end,
+                grid,
+                targetSpeed_mps = targetSpeed_mps,
+                waypoints = numWaypoints,
+                bounds = bounds,
+                weights = weights,
+                currentsGrid_u = currentsGrid_u,
+                currentsGrid_v = currentsGrid_v,
+                currentsTransform = currentsTransform_u,
+                regionTransform = regionTransform,
+                rewardGrid = rewardGrid,
+                timeIn = timeOffset_s,
+                interval = timeInterval_s,
+                pixelsize_m = pixelsize_m))
+
+    which uses the `__init__` function to initialize the problem based on the
+    provided arguments. See the documenation to `__init__` for their definitions.
+
+    """
+
     def __init__(self, start, end, grid, targetSpeed_mps = 1, bounds = None,
                  currentsGrid_u = None, currentsGrid_v = None, currentsTransform = None, regionTransform = None,
                  rewardGrid = None, waypoints = 5, timeIn = 0, interval = 3600, pixelsize_m = 1, weights = (0, 1, 1)):
+        """Initializes a path planning task to solve.
+
+         Args:
+            start : (float, float)
+                Tuple containing path start coordinates (row, column)
+            end : (float, float):
+                Tuple containing path goal coordinates (row, column)
+            grid : ndarray(dtype=int, ndim=2)
+                Array (2D) containing region occupancy grid where 0 indicates a free cell,
+                and 1 indicates an obstacle.
+            targetSpeed_mps : (float)
+                Target speed of the vessel in meters per second.
+            bounds (float, float, float, float):
+                Tuple containing the coordinates of a bounding rectangle on the
+                input 'grid' array. Planning will occur within the bounds.
+                Of form (first row, last row, first column, last column).
+                These values are direct array indices; the first row is '0'.
+                If 'None', will use entire extent of the 'grid'.
+            currentsGrid_u : ndarray(dtype=float, ndim=3)
+                Array (3D) containing the magnitudes of the water currents vector field.
+                The dimensions represent the (rows, columns, time steps) of a forecast
+                of water currents over the planning region.
+                The dimensions, rows, columns, grid spacing, should match the 'grid',
+                so that at each (row, column) cell, the planner can look up the
+                water currents.
+                If 'None', will not incorporate water currents in fitness calculations.
+            currentsGrid_v : ndarray(dtype=float, ndim=3)
+                Array (3D) containing the directions of the water currents vector field.
+                Must match the extent, dimensions of the magnitudes in `currentsGrid_u`.
+                They form a pair to define the water currents forecast.
+                If 'None', will not incorporate water currents in fitness calculations.
+            currentsTransform : (float, float, float, float, float, float)
+                Tuple containing the affine tranformation of the water currents
+                grid coordinate space (row, column) to georeferences (lat, lon).
+                Defined by GDAL, see <https://gdal.org/tutorials/geotransforms_tut.html#geotransforms-tut>.
+            regionTransform : (float, float, float, float, float, float)
+                Tuple containing the affine tranformation of the region `grid`
+                coordinate space (row, column) to georeferences (lat, lon).
+                Defined by GDAL, see <https://gdal.org/tutorials/geotransforms_tut.html#geotransforms-tut>.
+            rewardGrid : ndarray(dtype=float, ndim=2)
+                Array (2D) of reward values assigned to each cell of the region.
+                Thus, must be the same dimensions as the region 'grid',
+                so that each (row, column) can be used to look up the reward value.
+                If 'None', will not incorporate `reward` in fitness calculations.
+            waypounts : (int)
+                Number of waypoints to include in the solution path.
+            timeIn : (float)
+                Elapsed time in seconds to begin planning, w.r.t. the water forecasts.
+                Probable that a real planning task does not begin at exaclty
+                the first hour of the water currents forecast. So, this value
+                specifies the elapsed seconds since the start of the forecasts.
+            interval : (float)
+                Interval in seconds between the forecast time steps.
+            pixelsize_m : (float)
+                Size of pixels in meters.
+            weights : (float, float, float)
+                The user-specified weights of the planning objectives.
+                These are (distance, energy, reward), respectively.
+                By default, distance is set to 0 for energy-based planning.
+                The reward will only be meaningful if a reward grid is provided.
+        """
+
         self.start = np.array(start).astype(int)
         self.end = np.array(end).astype(int)
         self.waypoints = waypoints
@@ -61,42 +188,127 @@ class solvePath:
         self.emptyPath[0, :] = self.start
         self.emptyPath[waypoints + 1, :] = self.end
         if bounds is None:
+            # Default bounds to entire grid extent
             bounds = [0, self.rows - 1, 0, self.cols - 1]
         self.b = bounds
         self.weights = weights
 
     def fitness(self, x):
+        """Calculate path fitness.
+
+        Args:
+            x : ndarray(dtype=float, ndim=1)
+                Array (1D) containing path waypoints as a sequence of row, column values.
+                The pattern is [row_0, col_0, row_1, col_1, ..., row_N, col_N],
+                where N is the number of waypoints.
+
+        Returns:
+            float: The weighted sum of fitness criteria (distance, work, reward, obstacles)
+
+        """
+
+        # Convert path `x` to a 2D ndarray that contains the start and goal coordinates
         path = self.emptyPath
         path[1:self.waypoints + 1, 0] = x[::2].astype(int)
         path[1:self.waypoints + 1, 1] = x[1::2].astype(int)
+        # Calculate the work, distance, obstacles, and reward along path
         work, dist, obs, reward = calcWork(path, self.pathlen, self.grid, self.targetSpeed_mps,
                 self.currentsGrid_u, self.currentsGrid_v, self.currentsTransform, self.regionTransform,
                 self.rewardGrid, self.timeIn, self.interval, self.pixelsize_m)
-        return [(dist * self.weights[0]) + (work * self.weights[1]) + (-1 * reward * self.weights[2]) + (obs * obs * 100)]
-
-    def get_bounds(self):
-        lowerBounds = np.zeros(self.dim)
-        upperBounds = np.zeros(self.dim)
-        for i in range(self.dim):
-            if i % 2 == 0:
-                lowerBounds[i] = self.b[0]
-                upperBounds[i] = self.b[1]
-            else:
-                lowerBounds[i] = self.b[2]
-                upperBounds[i] = self.b[3]
-        return (lowerBounds, upperBounds)
+        # Calculate the fitness as a weighted sum of planning criteria
+        return [(dist * self.weights[0])
+                    + (work * self.weights[1])
+                    + (-1 * reward * self.weights[2])
+                    + (obs * obs * 100)]
 
     def get_name(self):
-        return "Solve path"
+        return "Metaplanner: USV path planning using metaheuristics"
 
-def raster2array(raster, dim_ordering="channels_last", dtype='float32'):
-    # Modified from: https://gis.stackexchange.com/a/283207
+def raster2array(raster, dtype='float32'):
+    """Converts geospatial raster to numpy ndarray.
+
+    Given a GDAL geospatial array object,
+    extract the array values to construct a numpy array.
+
+    Modified from: https://gis.stackexchange.com/a/283207
+
+    Args:
+        raster : (GDALDataset)
+            GDAL object containing geospatial raster data.
+            See <https://gdal.org/user/raster_data_model.html#raster-data-model>.
+        dtype : (string)
+            String of format (numpy dtype) of constructed array.
+
+    Returns:
+        ndarray: Array version of raster values.
+    """
+
     bands = [raster.GetRasterBand(i) for i in range(1, raster.RasterCount + 1)]
     return np.array([gdn.BandReadAsArray(band) for band in bands]).astype(dtype)
 
-def calcWork(path, n, regionGrid, targetSpeed_mps = 1, currentsGrid_u = None, currentsGrid_v = None, currentsTransform = None, regionTransform = None, rewardGrid = None, timeIn = 0, interval = 3600, pixelsize_m = 1):
-    '''
-    This function calculates cost to move vehicle along path
+def calcWork(path, n, regionGrid, targetSpeed_mps = 1, currentsGrid_u = None,
+             currentsGrid_v = None, currentsTransform = None,
+             regionTransform = None, rewardGrid = None, timeIn = 0,
+             interval = 3600, pixelsize_m = 1):
+    '''Calculates path fitness criteria.
+
+    Given a sequence of waypoints, calculates the values of the fitness criteria
+    if the vessel were to navigate along it. This is based on the input rasters
+    (occupancy grid region, water current forecasts, reward grid). Each of the
+    fitness criteria are returned to enable multi-objective planning.
+
+    Args:
+        path : ndarray(ndim=2, dtype=float)
+            Array containing the path to evaluate as a sequence of waypoints.
+            Format: [
+                     [start_row,       start_col],
+                     [waypoint_row_1,  waypoint_col_1],
+                     ...
+                     [waypoint_row_N,  waypoint_col_N]
+                     [goal_row,        goal_col]
+                    ]
+        n : int
+            Number of waypoints.
+        regionGrid : ndarray(dtype=int, ndim=2)
+            Array (2D) containing region occupancy grid where 0 indicates a free cell,
+            and 1 indicates an obstacle.
+        targetSpeed_mps : (float)
+                Target speed of the vessel in meters per second.
+        currentsGrid_u : ndarray(dtype=float, ndim=3)
+            Array (3D) containing the magnitudes of the water currents vector field.
+            The dimensions represent the (rows, columns, time steps) of a forecast
+            of water currents over the planning region.
+            The dimensions, rows, columns, grid spacing, should match the 'grid',
+            so that at each (row, column) cell, the planner can look up the
+            water currents.
+            If 'None', will not incorporate water currents in fitness calculations.
+        currentsGrid_v : ndarray(dtype=float, ndim=3)
+            Array (3D) containing the directions of the water currents vector field.
+            Must match the extent, dimensions of the magnitudes in `currentsGrid_u`.
+            They form a pair to define the water currents forecast.
+            If 'None', will not incorporate water currents in fitness calculations.
+        currentsTransform : (float, float, float, float, float, float)
+            Tuple containing the affine tranformation of the water currents
+            grid coordinate space (row, column) to georeferences (lat, lon).
+            Defined by GDAL, see <https://gdal.org/tutorials/geotransforms_tut.html#geotransforms-tut>.
+        regionTransform : (float, float, float, float, float, float)
+            Tuple containing the affine tranformation of the region `grid`
+            coordinate space (row, column) to georeferences (lat, lon).
+            Defined by GDAL, see <https://gdal.org/tutorials/geotransforms_tut.html#geotransforms-tut>.
+        rewardGrid : ndarray(dtype=float, ndim=2)
+            Array (2D) of reward values assigned to each cell of the region.
+            Thus, must be the same dimensions as the region 'grid',
+            so that each (row, column) can be used to look up the reward value.
+            If 'None', will not incorporate `reward` in fitness calculations.
+        timeIn : (float)
+            Elapsed time in seconds to begin planning, w.r.t. the water forecasts.
+            Probable that a real planning task does not begin at exaclty
+            the first hour of the water currents forecast. So, this value
+            specifies the elapsed seconds since the start of the forecasts.
+        interval : (float)
+            Interval in seconds between the forecast time steps.
+        pixelsize_m : (float)
+            Size of pixels in meters.
     '''
 
     # Initialize costs: distance, obstacles, work, reward
@@ -189,6 +401,24 @@ def calcWork(path, n, regionGrid, targetSpeed_mps = 1, currentsGrid_u = None, cu
     return costs[2], costs[0], costs[1], costs[3]
 
 def world2grid(lat, lon, transform, nrow):
+    """"Convert a (lat, lon) coordinate to (row, column).
+
+    Args:
+        lat : (float)
+            Latitude value.
+        lon : (float)
+            Longitude value.
+        transform : (float, float, float, float, float, float)
+            Tuple containing the affine tranformation of the grid
+            coordinate space (row, column) to georeferences (lat, lon).
+            Defined by GDAL, see <https://gdal.org/tutorials/geotransforms_tut.html#geotransforms-tut>.
+        nrow : (int)
+            Number of rows in raster grid.
+
+    Returns:
+        (int, int): The raster grid (row, column)
+            that corresponds to the given (lat, lon).
+    """
     row = int ((lat - transform[3]) / transform[5])
     col = int ((lon - transform[0]) / transform[1])
     return (row, col)
@@ -212,9 +442,33 @@ def getGridExtent (data):
     return { 'minx' : minx, 'miny' : miny, 'maxx' : maxx, 'maxy' : maxy, 'rows' : rows, 'cols' : cols  }
 
 if __name__ == "__main__":
-    ###########
-    # Options #
-    ###########
+    """Perform path planning using metaheuristic algorithm.
+
+    Inputs:
+        See <https://github.com/ekrell/conch> for
+        documentation on the inputs.
+
+    Outputs:
+        Solution path (text):
+            If using the '--path' option.
+            CSV containing the best-fit path found.
+                CSV column 1: path row coordinates in raster space
+                CSV column 2: path column coordinates in raster space
+
+            Example:
+                $ cat sample_path.txt
+                5.790000000000000000e+02,1.870000000000000000e+02
+                5.450000000000000000e+02,2.160000000000000000e+02
+                4.840000000000000000e+02,5.330000000000000000e+02
+                4.770000000000000000e+02,6.130000000000000000e+02
+                4.760000000000000000e+02,6.440000000000000000e+02
+                4.810000000000000000e+02,7.840000000000000000e+02
+                4.850000000000000000e+02,9.890000000000000000e+02
+
+        Solution plot (image):
+            If using the '--map' option.
+            Figure showing the waypoints and lines between them on the region map.
+    """
 
     parser = OptionParser()
     # Environment
