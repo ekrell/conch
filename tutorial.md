@@ -282,10 +282,35 @@ The path takes a longer route to avoid the strong currents that are present alon
 
 ### Example 3: opportunistic reward-based planning
 
-Inputs: region map, water currents, reward.
+**Inputs:** region map, water currents, reward.
 
-**NEED: image of path with currents and reward**
+Now, we will combine the water currents and reward for a multi-object task: **opportunistic reward-based planning**.
+
+    python3 conch/planners/metaplanner.py \
+        -r conch/test/inputs/full.tif \           # Input region raster
+        --currents_mag forecast_mwater.tiff \     # Input water current magnitudes
+        --currents_dir forecast_dwater.tiff \     # Input water current directions
+        --reward conch/test/inputs/reward.txt \   # Input reward raster
+        --init_pop initpop.txt \                  # Input initial population
+        --sy 42.32343 --sx -70.99428 \            # Start coordinates
+        --dy 42.33600 --dx -70.88737 \            # Goal coordinates
+        --speed 0.5 \                             # Target boat speed
+        --generations 500 \                       # Number of PSO generations
+        --pool_size 100 \                         # PSO pool size
+        --num_waypoints 5 \                       # Number of waypoints
+        --map reward.png \                        # Output plot of path
+        --path reward.txt                         # Output path waypoints
+
+![Plot of solution path](figures/sample_path_reward.png)
+
+The path makes minor adjustments to the energy-efficient path to intersect a couple of regions with high reward. 
 
 ## Conclusions
 
+This tutorial demonstrated how to use `conch` for PSO path planning as well as how to get water currents suitable for energy-efficient planning. 
+This is not an exhaustive documentation of all that can be done with `conch`. The `metaplanner.py` utility has a plethora of options.
+The user could modify the weights of the planning objects, for example to increase the planner's emphasis on reward. 
+Other metaheuristic algorithms are available (via the [PaGMO library](https://esa.github.io/pagmo2/)) such as [Genetic Algorithm](https://esa.github.io/pagmo2/docs/cpp/algorithms/sga.html?highlight=genetic%20algorithm) and [Artificial Bee Colony](https://esa.github.io/pagmo2/docs/cpp/algorithms/bee_colony.html).
+You can also use [Dijkstra](planners/graphplanner.py) instead, whose reliability (deterministic, guaranteed optimality) gives it a lasting appeal despite high computational cost. 
 
+There are many opportunities for enhancements. We use spatio-temporal water currents, but why not doing the same with the region (i.e. changing obstacles with tide) or reward (i.e. drifting scientific sampling targets). Also, we maintain a constant target speed. While common in path planning, we might want to go slower over high-reward sampling regions, but speed up to meet time constraints. We encourage exploration: feel free to make pull requests with your new features. 
