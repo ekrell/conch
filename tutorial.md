@@ -182,8 +182,15 @@ I made this file manually with a text editor. In real life, reward values could 
         --map dist.png \                       # Output plot of path
         --path dist.txt                        # Output path waypoints
 
-Output plot of path:
+Plot the path:
 
+    python3 conch/tools/plot_plan.py \
+        -r conch/test/inputs/full.tif \
+        --sy 42.32343 --sx -70.99428 \
+        --dy 42.33600 --dx -70.88737 \
+        --path dist.txt \
+        --map figure_distance_plot.png
+      
 ![Plot of solution path](figures/sample_path_dist.png)
 
 
@@ -274,8 +281,17 @@ like [Dijkstra's](https://en.wikipedia.org/wiki/Dijkstra%27s_algorithm).
         --map energy.png \                     # Output plot of path
         --path energy.txt                      # Output path waypoints
 
-Output plot of path:
+Plot the path:
 
+    python3 conch/tools/plot_plan.py \
+        -r conch/test/inputs/full.tif \
+        -u forecast_mwater.tiff \
+        -v forecast_dwater.tiff \
+        --sy 42.32343 --sx -70.99428 \
+        --dy 42.33600 --dx -70.88737 \
+        --path energy.txt \
+        --map figure_energy_plot.png
+      
 ![Plot of solution path](figures/sample_path_energy.png)
 
 The path takes a longer route to avoid the strong currents that are present along the shortest-distance path. 
@@ -301,6 +317,18 @@ Now, we will combine the water currents and reward for a multi-object task: **op
         --map reward.png \                        # Output plot of path
         --path reward.txt                         # Output path waypoints
 
+Plot the path:
+
+    python3 conch/tools/plot_plan.py \
+        -r conch/test/inputs/full.tif \
+        -u forecast_mwater.tiff \
+        -v forecast_dwater.tiff \
+        --reward conch/test/inputs/reward.txt
+        --sy 42.32343 --sx -70.99428 \
+        --dy 42.33600 --dx -70.88737 \
+        --path reward.txt \
+        --map figure_reward_plot.png
+      
 ![Plot of solution path](figures/sample_path_reward.png)
 
 The path makes minor adjustments to the energy-efficient path to intersect a couple of regions with high reward. 
