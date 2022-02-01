@@ -132,6 +132,10 @@ What are these?
 - `forecast_uwater.tiff`: u-component of water current vector field.
 - `forecast_vwater.tiff`: v-component of water current vector field. 
 
+View the plot: `forecast.png`
+
+![Plot of the forecast](figures/sample_whelk.png)
+
 However, `conch` expects the water currents rasters to be in terms of magnitude and direction. 
 I made a utility to handle the conversion. The utility is called `magdir2uv.py`, which sounds
 like the opposite of what we want. But there is the `--reverse` option that makes it do the opposite. 
