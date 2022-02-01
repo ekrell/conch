@@ -122,8 +122,8 @@ Generate the forecast rasters:
       
 List the files to see the outputs.
 
-  $ ls
-  conch  forecast_height.tiff  forecast.png  forecast_salinity.tiff  forecast_uwater.tiff  forecast_vwater.tiff  whelk
+    $ ls
+    conch  forecast_height.tiff  forecast.png  forecast_salinity.tiff  forecast_uwater.tiff  forecast_vwater.tiff  whelk
   
 What are these? 
 
@@ -132,26 +132,23 @@ What are these?
 - `forecast_uwater.tiff`: u-component of water current vector field.
 - `forecast_vwater.tiff`: v-component of water current vector field. 
 
+However, `conch` expects the water currents rasters to be in terms of magnitude and direction. 
+I made a utility to handle the conversion. The utility is called `magdir2uv.py`, which sounds
+like the opposite of what we want. But there is the `--reverse` option that makes it do the opposite. 
 
+    $ python3 conch/tools/magdir2uv.py \
+        -u forecast_uwater.tiff -v forecast_vwater.tiff \   # What you have
+        -m forecast_mwater.tiff -d forecast_dwater.tiff \   # What you need
+        --reverse
+    $ ls
+    conch  forecast_dwater.tiff  forecast_height.tiff  forecast_mwater.tiff  forecast.png  
+    forecast_salinity.tiff  forecast_uwater.tiff  forecast_vwater.tiff  whelk
+    
+    
     
 
 
 ## Step 2: Generate path
 
 
-
-
-
-
-## Conclusion
-
-We encourage you to try new things & make pull requests!
-
-### System limitations: 
-
-- No dynamic water levels i.e. tides
-- Global... not reactive (but could be a first step)
-- Assumes vehicle is a point mass, energy usage is the work to maintain heading, speed… 
-- Must maintain a constant speed
-- Assumes accurate forecasts (what about a [game theoretic planner](https://www.researchgate.net/publication/340065861_Game_Theoretic_Potential_Field_for_Autonomous_Water_Surface_Vehicle_Navigation_Using_Weather_Forecasts)?)
-- Metaheuristics always messy... trial & error... etc
+## Conclusions
