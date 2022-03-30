@@ -29,6 +29,11 @@ Tools are classified as either _builders_ or _solvers_, both being part of the p
 
 # Related publications
 
+- [Autonomous Surface Vehicle energy-efficient and reward-based path planning using Particle Swarm Optimization and Visibility Graphs](https://www.sciencedirect.com/science/article/pii/S0141118722000748)
+    - Evan Krell, Scott A. King, Luis Rodolfo Garcia Carrillo
+    - Applied Ocean Research. May 2022
+    - DOI: 10.1016/j.apor.2022.103125
+
 - [Autonomous Water Surface Vehicle Metaheuristic Mission Planning using Self-generated Goals and Environmental Forecasts](https://www.researchgate.net/publication/340066053_Autonomous_Water_Surface_Vehicle_Metaheuristic_Mission_Planning_using_Self-generated_Goals_and_Environmental_Forecasts)
     - Evan Krell, Scott A. King, Luis Rodolfo Garcia Carrillo
     - American Control Conference. March 2020
